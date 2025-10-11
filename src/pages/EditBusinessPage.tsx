@@ -13,6 +13,7 @@ import Button from '@mui/material/Button';
 import AddIcon from '@mui/icons-material/Add';
 import { ServiceEditForm } from '../components/service/ServiceEditForm';
 import { addServiceToBusiness, editService, getBusinessServices, IService } from '../service/service.api.service';
+import { BusinessCategoriesSection } from '../components/BusinessCategoriesSection';
 
 const EditBusinessPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -110,6 +111,20 @@ const EditBusinessPage: React.FC = () => {
           onChange={setFormState}
           hideSubmitButton
         />
+        
+        {/* Business Categories Section */}
+        {business && (
+          <BusinessCategoriesSection
+            businessId={business.id!}
+            businessCategories={business.categories || []}
+            businessDescription={business.description}
+            onCategoriesChange={(categories) => {
+              setFormState(prev => ({ ...prev, categories }));
+            }}
+            onError={showError}
+          />
+        )}
+        
         {/* Contacts Form */}
         <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>Contacts</Typography>
         <ContactsForm

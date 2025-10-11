@@ -15,7 +15,6 @@ import {
     getCategoriesSuggestions,
     removeCategoryFromService
 } from "../../service/categories.api.service";
-import { CategorySuggestions } from "../CategorySuggestions";
 import { FileUpload } from "../FileUpload";
 
 export const ServiceEditForm = ({
@@ -318,29 +317,6 @@ export const ServiceEditForm = ({
                         </Box>
                     </Collapse>
                 </Box>
-
-                {/* Category Suggestions Section */}
-                <CategorySuggestions
-                    query={service?.description!}
-                    onCategoryCreated={async (categoryName) => {
-                        // Refresh categories list after creating a new category
-                        try {
-                            setLoadingCategories(true);
-                            setCategoriesError(null);
-                            const categories = await getCategories();
-                            setAllCategories(categories);
-                            // Find the newly created category and add it to the service
-                            const newCategory = categories.find((cat: ICategory) => cat.name === categoryName);
-                            if (newCategory) {
-                                await handleAddCategory(newCategory);
-                            }
-                        } catch (error) {
-                            setCategoriesError('Failed to refresh categories');
-                        } finally {
-                            setLoadingCategories(false);
-                        }
-                    }}
-                />
 
                 <Divider sx={{ mb: 2 }} />
 

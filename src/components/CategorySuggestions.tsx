@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Chip, CircularProgress, Alert, Typography, Button, Collapse } from '@mui/material';
 import CategoryIcon from '@mui/icons-material/Category';
-import { getCategoriesSuggestions, createCategory } from '../service/categories.api.service';
+import { createCategory, getBusinessCategorySuggestions } from '../service/categories.api.service';
 import { useSnackbar } from '../contexts/SnackbarContext';
 
 interface CategorySuggestionsProps {
   query: string;
+  businessId: string;
   onCategoryCreated?: (categoryName: string) => void;
 }
 
 export const CategorySuggestions: React.FC<CategorySuggestionsProps> = ({
   query,
+  businessId,
   onCategoryCreated
 }) => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -28,7 +30,7 @@ export const CategorySuggestions: React.FC<CategorySuggestionsProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const result = await getCategoriesSuggestions(query);
+      const result = await getBusinessCategorySuggestions(businessId);
       setSuggestions(result);
     } catch (err) {
       setError('Failed to fetch category suggestions');
