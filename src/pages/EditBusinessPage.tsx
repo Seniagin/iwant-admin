@@ -1,18 +1,11 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CircularProgress, Alert, Typography, Box, Divider, Fab } from '@mui/material';
+import { CircularProgress, Alert, Typography, Box, Fab, Divider } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
-import { IBusiness, getBusinesses, editBusiness, getBusinessById } from '../service/business.api.service';
+import { IBusiness, editBusiness, getBusinessById } from '../service/business.api.service';
 import { useSnackbar } from '../contexts/SnackbarContext';
-import { BusinessForm, BusinessFormProps } from '../components/BusinessForm';
-import { ServiceList } from '../components/service/ServiceList';
+import { BusinessForm } from '../components/BusinessForm';
 import { ContactsForm } from '../components/ContactsForm';
-import { ServiceAddForm } from '../components/service/ServiceAddForm';
-import Drawer from '@mui/material/Drawer';
-import Button from '@mui/material/Button';
-import AddIcon from '@mui/icons-material/Add';
-import { ServiceEditForm } from '../components/service/ServiceEditForm';
-import { addServiceToBusiness, editService, getBusinessServices, IService } from '../service/service.api.service';
 import { BusinessCategoriesSection } from '../components/BusinessCategoriesSection';
 
 const EditBusinessPage: React.FC = () => {
@@ -21,15 +14,10 @@ const EditBusinessPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [services, setServices] = useState<IService[]>([]);
-  const [servicesLoading, setServicesLoading] = useState(true);
   const [formState, setFormState] = useState<Partial<IBusiness>>({});
   const [contacts, setContacts] = useState<{ phone?: string; email?: string }>({});
   const navigate = useNavigate();
   const { showSuccess, showError } = useSnackbar();
-  const [isServiceDrawerOpen, setIsServiceDrawerOpen] = useState(false);
-  const [isServiceEditDrawerOpen, setIsServiceEditDrawerOpen] = useState(false);
-  const [editingService, setEditingService] = useState<IService | null>(null);
 
   useEffect(() => {
     const fetchBusiness = async () => {
@@ -53,22 +41,6 @@ const EditBusinessPage: React.FC = () => {
     fetchBusiness();
   }, [id]);
 
-  useEffect(() => {
-    const fetchServices = async () => {
-      if (!id) return;
-      setServicesLoading(true);
-      try {
-        const result = await getBusinessServices(0, id); // 0 as dummy userId
-        setServices(result);
-      } catch (e) {
-        setServices([]);
-      } finally {
-        setServicesLoading(false);
-      }
-    };
-    fetchServices();
-  }, [id]);
-
   const handleEdit = async () => {
     setSaving(true);
     try {
@@ -80,12 +52,6 @@ const EditBusinessPage: React.FC = () => {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleEditService = (service: IService) => {
-    setEditingService(service);
-    setIsServiceEditDrawerOpen(true);
-    setIsServiceDrawerOpen(false);
   };
 
   if (loading) {
@@ -100,9 +66,11 @@ const EditBusinessPage: React.FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', minHeight: '80vh', mt: 6, position: 'relative' }}>
-      <Box sx={{ flex: 1, pr: 3, maxWidth: 400 }}>
-        {/* Business Edit Form */}
-        <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>General Information</Typography>
+      {/* Left Side - Business Info and Contacts (30%) */}
+      <Box sx={{ flex: '0 0 30%', pr: 3, maxWidth: 400 }}>
+        <Typography variant="h4" gutterBottom sx={{ mb: 3 }}>Edit Business</Typography>
+        
+        {/* Business Form - Name and Description */}
         <BusinessForm
           initialBusiness={business || {}}
           onSubmit={async () => {}}
@@ -112,7 +80,19 @@ const EditBusinessPage: React.FC = () => {
           hideSubmitButton
         />
         
-        {/* Business Categories Section */}
+        {/* Contacts Form */}
+        <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>Contacts</Typography>
+        <ContactsForm
+          initialContacts={contacts}
+          onChange={setContacts}
+        />
+      </Box>
+
+      {/* Divider */}
+      <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
+
+      {/* Right Side - Categories (70%) */}
+      <Box sx={{ flex: 1, pl: 3, minWidth: 0 }}>
         {business && (
           <BusinessCategoriesSection
             businessId={business.id!}
@@ -124,117 +104,8 @@ const EditBusinessPage: React.FC = () => {
             onError={showError}
           />
         )}
-        
-        {/* Contacts Form */}
-        <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>Contacts</Typography>
-        <ContactsForm
-          initialContacts={contacts}
-          onChange={setContacts}
-        />
       </Box>
-      <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
-      <Box sx={{ flex: 2, pl: 3, minWidth: 0 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h5" gutterBottom>
-            Services
-          </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={() => setIsServiceDrawerOpen(true)}
-          >
-            Add Service
-          </Button>
-        </Box>
-        {servicesLoading ? (
-          <CircularProgress sx={{ display: 'block', mx: 'auto', mt: 8 }} />
-        ) : (
-          <ServiceList
-            loading={false}
-            services={services}
-            handleEditService={handleEditService}
-            businessId={id!}
-            onServiceDeleted={() => {}}
-          />
-        )}
-        <Drawer
-          anchor="right"
-          open={isServiceDrawerOpen}
-          onClose={() => setIsServiceDrawerOpen(false)}
-        >
-          <Box sx={{ width: 400, p: 3 }}>
-            <ServiceAddForm
-              userId={undefined}
-              businessId={id!}
-              onSubmit={async (error, service) => {
-                if (error) {
-                  showError(error);
-                  return;
-                }
-                try {
-                  await addServiceToBusiness(id!, service!);
-                  showSuccess('Service added successfully!');
-                  setIsServiceDrawerOpen(false);
-                  // Refresh services list
-                  setServicesLoading(true);
-                  try {
-                    const result = await getBusinessServices(0, id!);
-                    setServices(result);
-                  } catch (e) {
-                    setServices([]);
-                  } finally {
-                    setServicesLoading(false);
-                  }
-                } catch (e) {
-                  showError('Failed to add service. Please try again.');
-                }
-              }}
-            />
-          </Box>
-        </Drawer>
-        <Drawer
-          anchor="right"
-          open={isServiceEditDrawerOpen}
-          onClose={() => setIsServiceEditDrawerOpen(false)}
-        >
-          <Box sx={{ width: 400, p: 3 }}>
-            {editingService && (
-              <ServiceEditForm
-                serviceId={editingService.id}
-                onSubmit={async (error, updatedService) => {
-                  if (error) {
-                    showError(error);
-                    return;
-                  }
-                  if (!updatedService || !updatedService.id) {
-                    showError('Invalid service data.');
-                    return;
-                  }
-                  try {
-                    await editService(updatedService.id, updatedService);
-                    showSuccess('Service updated successfully!');
-                    setIsServiceEditDrawerOpen(false);
-                    setEditingService(null);
-                    // Refresh services list
-                    setServicesLoading(true);
-                    try {
-                      const result = await getBusinessServices(0, id!);
-                      setServices(result);
-                    } catch (e) {
-                      setServices([]);
-                    } finally {
-                      setServicesLoading(false);
-                    }
-                  } catch (e) {
-                    showError('Failed to update service. Please try again.');
-                  }
-                }}
-              />
-            )}
-          </Box>
-        </Drawer>
-      </Box>
+
       <Fab
         color="primary"
         aria-label="save"
@@ -248,4 +119,4 @@ const EditBusinessPage: React.FC = () => {
   );
 };
 
-export default EditBusinessPage; 
+export default EditBusinessPage;

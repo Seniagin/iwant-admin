@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { useSnackbar } from "../contexts/SnackbarContext";
 import { getBusinessDemands } from "../service/business.api.service";
 import { DemandCard } from "./DemandCard";
-import { getBusinessServices, IService } from "../service/service.api.service";
 
 interface BusinessDemandsDialogProps {
     businessId: string | null;
@@ -23,15 +22,12 @@ export const BusinessDemandsDialog: React.FC<BusinessDemandsDialogProps> = ({
 }) => {
 
     const [businessDemands, setBusinessDemands] = useState<any[]>([]);
-    const [businessServices, setBusinessServices] = useState<IService[]>([]);
     const [isLoadingDemands, setIsLoadingDemands] = useState(false);
-    const [isLoadingServices, setIsLoadingServices] = useState(false);
     const { showSuccess, showError } = useSnackbar();
 
     useEffect(() => {
         if (businessId && userId) {
             handleShowDemands(businessId);
-            handleFetchServices(businessId, userId);
         }
     }, [businessId, userId]);
 
@@ -44,18 +40,6 @@ export const BusinessDemandsDialog: React.FC<BusinessDemandsDialogProps> = ({
             showError('Failed to fetch demands');
         } finally {
             setIsLoadingDemands(false);
-        }
-    };
-
-    const handleFetchServices = async (businessId: string, userId: number) => {
-        setIsLoadingServices(true);
-        try {
-            const services = await getBusinessServices(userId, businessId);
-            setBusinessServices(services);
-        } catch (error) {
-            showError('Failed to fetch services');
-        } finally {
-            setIsLoadingServices(false);
         }
     };
 
@@ -74,7 +58,7 @@ export const BusinessDemandsDialog: React.FC<BusinessDemandsDialogProps> = ({
             </Box>
         </DialogTitle>
         <DialogContent>
-            {(isLoadingDemands || isLoadingServices) ? (
+            {isLoadingDemands ? (
                 <Box display="flex" justifyContent="center" my={4}>
                     <CircularProgress />
                 </Box>
@@ -88,7 +72,6 @@ export const BusinessDemandsDialog: React.FC<BusinessDemandsDialogProps> = ({
                         <DemandCard 
                             key={demand.id} 
                             demand={demand} 
-                            services={businessServices}
                         />
                     ))}
                 </Box>

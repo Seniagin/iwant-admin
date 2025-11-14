@@ -11,16 +11,11 @@ import {
     DialogContent,
     DialogActions,
     TextField,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
     IconButton
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { ICategory, IOffer, createOffer } from '../service/business.api.service';
 import { useSnackbar } from '../contexts/SnackbarContext';
-import { IService } from '../service/service.api.service';
 
 interface IDemand {
     id: string;
@@ -31,12 +26,10 @@ interface IDemand {
 
 interface DemandCardProps {
     demand: IDemand;
-    services?: IService[];
 }
 
-export const DemandCard: React.FC<DemandCardProps> = ({ demand, services = [] }) => {
+export const DemandCard: React.FC<DemandCardProps> = ({ demand }) => {
     const [isOfferDialogOpen, setIsOfferDialogOpen] = useState(false);
-    const [selectedServiceId, setSelectedServiceId] = useState<string>('');
     const [comment, setComment] = useState('');
     const { showSuccess, showError } = useSnackbar();
 
@@ -52,22 +45,21 @@ export const DemandCard: React.FC<DemandCardProps> = ({ demand, services = [] })
     };
 
     const handleMakeOffer = async () => {
-        if (!selectedServiceId || !comment.trim()) {
-            showError('Please select a service and enter a comment');
+        if (!comment.trim()) {
+            showError('Please enter a comment');
             return;
         }
 
         try {
             const offer: IOffer = {
                 demandId: parseInt(demand.id),
-                serviceId: selectedServiceId,
+                serviceId: '', // No service needed anymore
                 comment: comment.trim()
             };
 
             await createOffer(offer);
             showSuccess('Offer created successfully!');
             setIsOfferDialogOpen(false);
-            setSelectedServiceId('');
             setComment('');
         } catch (error) {
             showError('Failed to create offer. Please try again.');
@@ -76,7 +68,6 @@ export const DemandCard: React.FC<DemandCardProps> = ({ demand, services = [] })
 
     const handleCloseDialog = () => {
         setIsOfferDialogOpen(false);
-        setSelectedServiceId('');
         setComment('');
     };
 
@@ -104,7 +95,6 @@ export const DemandCard: React.FC<DemandCardProps> = ({ demand, services = [] })
                             color="primary"
                             size="small"
                             onClick={() => setIsOfferDialogOpen(true)}
-                            disabled={services.length === 0}
                         >
                             Make Offer
                         </Button>
@@ -131,21 +121,6 @@ export const DemandCard: React.FC<DemandCardProps> = ({ demand, services = [] })
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                             Demand: {demand.translation}
                         </Typography>
-                        
-                        <FormControl fullWidth sx={{ mb: 2 }}>
-                            <InputLabel>Select Service</InputLabel>
-                            <Select
-                                value={selectedServiceId}
-                                onChange={(e) => setSelectedServiceId(e.target.value)}
-                                label="Select Service"
-                            >
-                                {services.map((service) => (
-                                    <MenuItem key={service.id} value={service.id}>
-                                        {service.name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
 
                         <TextField
                             fullWidth
@@ -166,7 +141,7 @@ export const DemandCard: React.FC<DemandCardProps> = ({ demand, services = [] })
                     <Button 
                         onClick={handleMakeOffer}
                         variant="contained"
-                        disabled={!selectedServiceId || !comment.trim()}
+                        disabled={!comment.trim()}
                     >
                         Submit Offer
                     </Button>
