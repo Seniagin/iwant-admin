@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getCategories, deleteCategory } from '../service/search.api.service';
 import {
     Table,
@@ -22,6 +22,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { createCategory } from '../service/categories.api.service';
+import { PineconeIndexStats, PineconeIndexStatsRef } from '../components/PineconeIndexStats';
 
 interface Category {
     id: string;
@@ -41,6 +42,7 @@ export const CategoriesPage: React.FC = () => {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState('');
     const { showSuccess, showError } = useSnackbar();
+    const statsRef = useRef<PineconeIndexStatsRef>(null);
 
     const fetchCategories = async () => {
         try {
@@ -72,6 +74,8 @@ export const CategoriesPage: React.FC = () => {
             setNewCategoryName('');
             setIsDrawerOpen(false);
             showSuccess('Category created successfully!');
+            // Refresh index stats after adding category
+            statsRef.current?.refresh();
         } catch (error) {
             showError('Failed to create category. Please try again.');
         }
@@ -92,6 +96,8 @@ export const CategoriesPage: React.FC = () => {
             <Typography variant="h4" component="h2" gutterBottom align="center">
                 Categories Management
             </Typography>
+
+            <PineconeIndexStats ref={statsRef} />
 
             {isLoading ? (
                 <Box display="flex" justifyContent="center" my={4}>

@@ -61,3 +61,25 @@ export const removeCategoryFromBusiness = async (businessId: string, categoryId:
     });
     if (!response.ok) throw new Error('Failed to remove category from business');
 };
+
+export const getIndexStats = async () => {
+    const response = await fetch(`${API_URL}/categories/stats/index`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+    if (!response.ok) throw new Error('Failed to fetch index stats');
+    return response.json();
+};
+
+export const syncCategories = async () => {
+    const response = await fetch(`${API_URL}/categories/sync`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+    if (!response.ok) throw new Error('Failed to sync categories');
+    return response.json();
+};
