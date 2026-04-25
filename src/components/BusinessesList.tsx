@@ -21,29 +21,27 @@ import {
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { getBusinessDemands, IBusiness } from '../service/business.api.service';
-import { useSnackbar } from '../contexts/SnackbarContext';
+import { IBusiness } from '../service/business.api.service';
 import { BusinessDemandsDialog } from './BusinessDemandsDialog';
 
 interface BusinessesListProps {
     businesses: IBusiness[];
     isLoading: boolean;
-    onViewBusinessDetails: (businessId: string) => void;
     onEditBusiness: (business: IBusiness) => void;
     onDeleteBusiness?: (business: IBusiness) => void;
-    userId?: number;
 }
 
 export const BusinessesList: React.FC<BusinessesListProps> = ({
     businesses,
     isLoading,
-    onViewBusinessDetails,
     onEditBusiness,
     onDeleteBusiness,
-    userId
 }) => {
     const [isDemandsDialogOpen, setIsDemandsDialogOpen] = useState(false);
-    const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
+    const [selectedBusinessForDemands, setSelectedBusinessForDemands] = useState<{
+        id: string;
+        name: string;
+    } | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [businessToDelete, setBusinessToDelete] = useState<IBusiness | null>(null);
 
@@ -122,7 +120,10 @@ export const BusinessesList: React.FC<BusinessesListProps> = ({
                                     <Button
                                         size="small"
                                         onClick={() => {
-                                            setSelectedBusinessId(business.id);
+                                            setSelectedBusinessForDemands({
+                                                id: business.id,
+                                                name: business.name,
+                                            });
                                             setIsDemandsDialogOpen(true);
                                         }}
                                         variant="outlined"
@@ -134,15 +135,6 @@ export const BusinessesList: React.FC<BusinessesListProps> = ({
                                     <Button
                                         variant="outlined"
                                         color="primary"
-                                        size="small"
-                                        startIcon={<VisibilityIcon />}
-                                        onClick={() => onViewBusinessDetails(business.id)}
-                                    >
-                                        Details
-                                    </Button>
-                                    <Button
-                                        variant="outlined"
-                                        color="secondary"
                                         size="small"
                                         startIcon={<EditIcon />}
                                         onClick={() => onEditBusiness(business)}
@@ -167,10 +159,13 @@ export const BusinessesList: React.FC<BusinessesListProps> = ({
                 </TableBody>
             </Table>
             <BusinessDemandsDialog
-                businessId={selectedBusinessId}
+                businessId={selectedBusinessForDemands?.id ?? null}
+                businessName={selectedBusinessForDemands?.name ?? null}
                 isOpen={isDemandsDialogOpen}
-                onClose={setIsDemandsDialogOpen}
-                userId={userId}
+                onClose={() => {
+                    setIsDemandsDialogOpen(false);
+                    setSelectedBusinessForDemands(null);
+                }}
             />
 
             {/* Delete Confirmation Dialog */}

@@ -49,9 +49,9 @@ export const CategorySuggestions: React.FC<CategorySuggestionsProps> = ({
     try {
       await createCategory(suggestion);
       showSuccess(`Category "${suggestion}" created successfully!`);
+      // Remove the selected suggestion from the list immediately
+      setSuggestions(prev => prev.filter(s => s !== suggestion));
       onCategoryCreated?.(suggestion);
-      // Refresh suggestions list
-      fetchSuggestions();
     } catch (err) {
       showError('Failed to create category. Please try again.');
     }

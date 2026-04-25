@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
 import { useNavigate } from 'react-router-dom';
 import { IBusinessUser, getBusinessUsers, deleteBusinessUser } from '../service/business.api.service';
 import { useSnackbar } from '../contexts/SnackbarContext';
@@ -88,15 +89,40 @@ export const BusinessUsersPage: React.FC = () => {
     };
 
     useEffect(() => {
-        console.log('33')
         fetchBusinessUsers();
     }, []);
 
     return (
-        <Box sx={{ width: '100%', boxSizing: 'border-box', mx: 'auto', p: 3 }}>
-            <Typography variant="h4" component="h2" gutterBottom align="center">
-                Business Users Management
-            </Typography>
+        <Box
+            sx={{
+                width: '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
+                px: { xs: 2, sm: 2.5, md: 3 },
+                py: 3,
+            }}
+        >
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 2,
+                    mb: 2,
+                }}
+            >
+                <Typography variant="h4" component="h2">
+                    Business Users Management
+                </Typography>
+                <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => navigate('/business-users/new')}
+                >
+                    Create business user
+                </Button>
+            </Box>
 
             {isLoading ? (
                 <Box display="flex" justifyContent="center" my={4}>
@@ -123,7 +149,7 @@ export const BusinessUsersPage: React.FC = () => {
                                     <TableCell component="th" scope="row" sx={{ fontFamily: 'monospace' }}>
                                         {user.id}
                                     </TableCell>
-                                    <TableCell>{user.email}</TableCell>
+                                    <TableCell>{user.email ?? '—'}</TableCell>
                                     <TableCell>
                                         <Chip
                                             label={user.isActive ? 'Active' : 'Inactive'}
@@ -180,7 +206,7 @@ export const BusinessUsersPage: React.FC = () => {
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="delete-dialog-description">
-                        Are you sure you want to delete user "{userToDelete?.email}"? This action cannot be undone.
+                        {`Are you sure you want to delete "${userToDelete?.email ?? 'ID ' + String(userToDelete?.id)}"? This action cannot be undone.`}
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>

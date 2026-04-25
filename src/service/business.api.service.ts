@@ -1,9 +1,27 @@
+import type { DemandResponseDto, PaginatedDemandsResponseDto } from './search.api.service';
+import type { OfferTimingEnum } from '../types/offerTiming';
+
+/**
+ * Business contact fields — matches backend `BusinessContactsEntity` /
+ * `BusinessContactsResponseDto` writable scalars (`UpdateContactsDto`).
+ */
+export interface IBusinessContacts {
+    phone?: string | null;
+    email?: string | null;
+    address?: string | null;
+    website?: string | null;
+    instagram?: string | null;
+    /** Present in API docs when serialized from DB; read-only for display. */
+    geolocation?: string | null;
+}
+
 export interface IBusiness {
     id: string;
     name: string;
     description?: string;
-    contacts?: { phone?: string; email?: string };
+    contacts?: IBusinessContacts;
     categories?: ICategory[];
+    location?: { longitude: number; latitude: number };
 }
 
 export interface ICategory {
@@ -11,25 +29,55 @@ export interface ICategory {
     name: string;
 }
 
-export interface IDemand {
-    id: string;
-    category: ICategory;
-    translation: string;
-    createdAt: string;
-}
-
+/** Admin API `AdminBusinessUserResponseDto` */
 export interface IBusinessUser {
     id: number;
-    email: string;
+    email: string | null;
+    telegramId: number | null;
+    telegramUsername: string | null;
+    telegramFirstName: string | null;
+    telegramLastName: string | null;
+    telegramLanguageCode: string | null;
+    telegramPhotoUrl: string | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
 }
 
-export interface IOffer {
-    demandId: number;
-    serviceId: string;
-    comment: string;
+/** POST /admin/business-user */
+export interface CreateAdminBusinessUserDto {
+    email?: string | null;
+    password?: string;
+    telegramId?: number | null;
+    telegramUsername?: string | null;
+    telegramFirstName?: string | null;
+    telegramLastName?: string | null;
+    telegramLanguageCode?: string | null;
+    telegramPhotoUrl?: string | null;
+    isActive?: boolean;
+}
+
+/** PATCH /admin/business-user/:id */
+export interface UpdateAdminBusinessUserDto {
+    email?: string | null;
+    password?: string;
+    telegramId?: number | null;
+    telegramUsername?: string | null;
+    telegramFirstName?: string | null;
+    telegramLastName?: string | null;
+    telegramLanguageCode?: string | null;
+    telegramPhotoUrl?: string | null;
+    isActive?: boolean;
+    clearPassword?: boolean;
+    unsetTelegramId?: boolean;
+}
+
+/** POST /admin/demands/:demandId/offers — body matches backend `AdminCreateOfferDto`. */
+export interface AdminCreateOfferDto {
+    businessId: string;
+    price?: number;
+    time?: OfferTimingEnum;
+    comment?: string;
 }
 
 const API_URL = process.env.REACT_APP_API_URL;
@@ -106,10 +154,30 @@ export const getBusinessCategories = async (businessId: string): Promise<ICatego
     return response.json();
 };
 
-export const getBusinessDemands = async (businessId: string): Promise<IDemand[]> => {
-    const response = await fetch(`${API_URL}/business/${businessId}/demands`);
-    if (!response.ok) throw new Error('Failed to fetch business demands');
-    return response.json();
+/** GET /admin/business/:businessId/demands — paginated; backend default limit 20. */
+export const getBusinessDemandsPaginated = async (
+    businessId: string,
+    params?: { page?: number; limit?: number }
+): Promise<PaginatedDemandsResponseDto> => {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 200;
+    const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
+    const response = await fetch(`${API_URL}/admin/business/${businessId}/demands?${qs}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+    });
+    if (!response.ok) {
+        if (response.status === 404) throw new Error('Business not found');
+        throw new Error('Failed to fetch business demands');
+    }
+    return response.json() as Promise<PaginatedDemandsResponseDto>;
+};
+
+export const getBusinessDemands = async (businessId: string): Promise<DemandResponseDto[]> => {
+    const { items } = await getBusinessDemandsPaginated(businessId, { page: 1, limit: 200 });
+    return items;
 };
 
 export const getBusinessUsers = async (): Promise<IBusinessUser[]> => {
@@ -121,6 +189,37 @@ export const getBusinessUsers = async (): Promise<IBusinessUser[]> => {
 export const getBusinessUser = async (userId: number): Promise<IBusinessUser> => {
     const response = await fetch(`${API_URL}/admin/business-users/${userId}`);
     if (!response.ok) throw new Error('Failed to fetch business user');
+    return response.json();
+};
+
+export const createBusinessUser = async (body: CreateAdminBusinessUserDto): Promise<IBusinessUser> => {
+    const response = await fetch(`${API_URL}/admin/business-user`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+        if (response.status === 409) throw new Error('Email or Telegram ID already in use');
+        throw new Error('Failed to create business user');
+    }
+    return response.json();
+};
+
+export const updateBusinessUser = async (userId: number, body: UpdateAdminBusinessUserDto): Promise<IBusinessUser> => {
+    const response = await fetch(`${API_URL}/admin/business-user/${userId}`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+        if (response.status === 404) throw new Error('Business user not found');
+        if (response.status === 409) throw new Error('Email or Telegram ID already in use');
+        throw new Error('Failed to update business user');
+    }
     return response.json();
 };
 
@@ -199,18 +298,21 @@ export const editUserBusiness = async (userId: number, businessId: string, busin
     return response.json();
 };
 
-export const createOffer = async (offer: IOffer): Promise<any> => {
-    const response = await fetch(`${API_URL}/offer`, {
+/** POST /admin/demands/:demandId/offers — demand id in path, business UUID in body. */
+export const createAdminOfferForDemand = async (
+    demandId: number,
+    body: AdminCreateOfferDto
+): Promise<unknown> => {
+    const response = await fetch(`${API_URL}/admin/demands/${demandId}/offers`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
         },
-        body: JSON.stringify(offer)
+        body: JSON.stringify(body),
     });
-
     if (!response.ok) {
+        if (response.status === 404) throw new Error('Demand or business not found');
         throw new Error('Failed to create offer');
     }
-
     return response.json();
 };

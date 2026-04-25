@@ -1,22 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import {
-    Box,
-    Typography,
-    Alert,
-    CircularProgress,
-    Chip,
-    Button,
-    Drawer,
-    TextField,
-    IconButton
-} from '@mui/material';
+import { Box, Typography, Alert, CircularProgress, Chip, Button, Drawer } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
-import CloseIcon from '@mui/icons-material/Close';
+import EditIcon from '@mui/icons-material/Edit';
 import { useParams, useNavigate } from 'react-router-dom';
-import { IBusinessUser, IBusiness, getBusinessUser, addBusinessToUser, getUserBusinesses, editUserBusiness, deleteBusiness } from '../service/business.api.service';
+import { IBusinessUser, IBusiness, getBusinessUser, addBusinessToUser, getUserBusinesses, deleteBusiness } from '../service/business.api.service';
 import { BusinessCreateForm } from '../components/BusinessCreateForm';
 import { BusinessesList } from '../components/BusinessesList';
+import { BusinessUserEditDrawer } from '../components/BusinessUserEditDrawer';
 import { useSnackbar } from '../contexts/SnackbarContext';
 
 export const BusinessUserDetailsPage: React.FC = () => {
@@ -26,9 +17,7 @@ export const BusinessUserDetailsPage: React.FC = () => {
     const [isLoadingBusinesses, setIsLoadingBusinesses] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-    const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
-    const [editingBusiness, setEditingBusiness] = useState<IBusiness | null>(null);
-    const [editFormData, setEditFormData] = useState<Partial<IBusiness>>({});
+    const [editUserOpen, setEditUserOpen] = useState(false);
     const { userId } = useParams<{ userId: string }>();
     const navigate = useNavigate();
     const { showSuccess, showError } = useSnackbar();
@@ -43,7 +32,7 @@ export const BusinessUserDetailsPage: React.FC = () => {
         try {
             setIsLoading(true);
             setError(null);
-            const data = await getBusinessUser(parseInt(userId));
+            const data = await getBusinessUser(parseInt(userId, 10));
             setUser(data);
         } catch (err) {
             setError('Failed to fetch user details');
@@ -57,7 +46,7 @@ export const BusinessUserDetailsPage: React.FC = () => {
 
         try {
             setIsLoadingBusinesses(true);
-            const businesses = await getUserBusinesses(parseInt(userId));
+            const businesses = await getUserBusinesses(parseInt(userId, 10));
             setUserBusinesses(businesses);
         } catch (err) {
             showError('Failed to fetch user businesses');
@@ -70,9 +59,8 @@ export const BusinessUserDetailsPage: React.FC = () => {
         if (!userId) return;
 
         try {
-            await addBusinessToUser(parseInt(userId), business);
+            await addBusinessToUser(parseInt(userId, 10), business);
             showSuccess('Business added successfully!');
-            // Refresh the businesses list
             fetchUserBusinesses();
         } catch (error) {
             showError('Failed to add business. Please try again.');
@@ -80,44 +68,13 @@ export const BusinessUserDetailsPage: React.FC = () => {
     };
 
     const handleEditBusiness = (business: IBusiness) => {
-        setEditingBusiness(business);
-        setEditFormData({
-            name: business.name,
-            description: business.description,
-        });
-        setIsEditDrawerOpen(true);
-    };
-
-    const handleEditSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!userId || !editingBusiness) return;
-
-        try {
-            await editUserBusiness(parseInt(userId), editingBusiness.id, editFormData);
-            showSuccess('Business updated successfully!');
-            setIsEditDrawerOpen(false);
-            setEditingBusiness(null);
-            setEditFormData({});
-            // Refresh the businesses list
-            fetchUserBusinesses();
-        } catch (error) {
-            showError('Failed to update business. Please try again.');
-        }
-    };
-
-    const handleEditInputChange = (field: keyof IBusiness) => (e: React.ChangeEvent<HTMLInputElement>) => {
-        setEditFormData(prev => ({ ...prev, [field]: e.target.value }));
-    };
-
-    const handleViewBusinessDetails = (businessId: string) => {
-        navigate(`/business-users/${userId}/businesses/${businessId}`);
+        navigate(`/business-users/${userId}/businesses/${business.id}/edit`);
     };
 
     const handleDeleteBusiness = async (business: IBusiness) => {
         try {
             await deleteBusiness(business.id);
             showSuccess('Business deleted successfully!');
-            // Refresh the businesses list
             fetchUserBusinesses();
         } catch (error) {
             showError('Failed to delete business. Please try again.');
@@ -135,7 +92,15 @@ export const BusinessUserDetailsPage: React.FC = () => {
 
     if (isLoading) {
         return (
-            <Box sx={{ width: '100%', boxSizing: 'border-box', mx: 'auto', p: 3 }}>
+            <Box
+                sx={{
+                    width: '100%',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                    px: { xs: 2, sm: 2.5, md: 3 },
+                    py: 3,
+                }}
+            >
                 <Box display="flex" justifyContent="center" my={4}>
                     <CircularProgress />
                 </Box>
@@ -145,12 +110,16 @@ export const BusinessUserDetailsPage: React.FC = () => {
 
     if (error) {
         return (
-            <Box sx={{ width: '100%', boxSizing: 'border-box', mx: 'auto', p: 3 }}>
-                <Button
-                    startIcon={<ArrowBackIcon />}
-                    onClick={handleBack}
-                    sx={{ mb: 2 }}
-                >
+            <Box
+                sx={{
+                    width: '100%',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                    px: { xs: 2, sm: 2.5, md: 3 },
+                    py: 3,
+                }}
+            >
+                <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>
                     Back to Business Users
                 </Button>
                 <Alert severity="error">{error}</Alert>
@@ -160,12 +129,16 @@ export const BusinessUserDetailsPage: React.FC = () => {
 
     if (!user) {
         return (
-            <Box sx={{ width: '100%', boxSizing: 'border-box', mx: 'auto', p: 3 }}>
-                <Button
-                    startIcon={<ArrowBackIcon />}
-                    onClick={handleBack}
-                    sx={{ mb: 2 }}
-                >
+            <Box
+                sx={{
+                    width: '100%',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                    px: { xs: 2, sm: 2.5, md: 3 },
+                    py: 3,
+                }}
+            >
+                <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>
                     Back to Business Users
                 </Button>
                 <Alert severity="warning">User not found</Alert>
@@ -174,12 +147,16 @@ export const BusinessUserDetailsPage: React.FC = () => {
     }
 
     return (
-        <Box sx={{ width: '100%', boxSizing: 'border-box', mx: 'auto', p: 3, maxWidth: '100%' }}>
-            <Button
-                startIcon={<ArrowBackIcon />}
-                onClick={handleBack}
-                sx={{ mb: 3 }}
-            >
+        <Box
+            sx={{
+                width: '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
+                px: { xs: 2, sm: 2.5, md: 3 },
+                py: 3,
+            }}
+        >
+            <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 3 }}>
                 Back to Business Users
             </Button>
 
@@ -192,21 +169,19 @@ export const BusinessUserDetailsPage: React.FC = () => {
                         User ID: {user.id}
                     </Typography>
                     <Typography variant="body1" gutterBottom>
-                        Email: {user.email}
+                        Email: {user.email ?? '—'}
                     </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                     <Chip
                         label={user.isActive ? 'Active' : 'Inactive'}
                         color={user.isActive ? 'success' : 'error'}
                         size="medium"
                     />
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<AddIcon />}
-                        onClick={() => setIsDrawerOpen(true)}
-                    >
+                    <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditUserOpen(true)}>
+                        Edit user
+                    </Button>
+                    <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={() => setIsDrawerOpen(true)}>
                         Add Business
                     </Button>
                 </Box>
@@ -219,73 +194,20 @@ export const BusinessUserDetailsPage: React.FC = () => {
             <BusinessesList
                 businesses={userBusinesses}
                 isLoading={isLoadingBusinesses}
-                onViewBusinessDetails={handleViewBusinessDetails}
                 onEditBusiness={handleEditBusiness}
                 onDeleteBusiness={handleDeleteBusiness}
-                userId={userId ? parseInt(userId) : undefined}
             />
 
-            {/* Add Business Drawer */}
-            <Drawer
-                anchor="right"
-                open={isDrawerOpen}
-                onClose={() => setIsDrawerOpen(false)}
-            >
+            <Drawer anchor="right" open={isDrawerOpen} onClose={() => setIsDrawerOpen(false)}>
                 <BusinessCreateForm onSubmit={handleSubmit} setIsDrawerOpen={setIsDrawerOpen} />
             </Drawer>
 
-            {/* Edit Business Drawer */}
-            <Drawer
-                anchor="right"
-                open={isEditDrawerOpen}
-                onClose={() => {
-                    setIsEditDrawerOpen(false);
-                    setEditingBusiness(null);
-                    setEditFormData({});
-                }}
-            >
-                <Box sx={{ width: 400, p: 3 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                        <Typography variant="h6">Edit Business</Typography>
-                        <IconButton onClick={() => {
-                            setIsEditDrawerOpen(false);
-                            setEditingBusiness(null);
-                            setEditFormData({});
-                        }}>
-                            <CloseIcon />
-                        </IconButton>
-                    </Box>
-                    <Box component="form" onSubmit={handleEditSubmit}>
-                        <TextField
-                            fullWidth
-                            label="Business Name"
-                            value={editFormData.name || ''}
-                            onChange={handleEditInputChange('name')}
-                            required
-                            placeholder="Enter business name"
-                            sx={{ mb: 2 }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Description"
-                            value={editFormData.description || ''}
-                            onChange={handleEditInputChange('description')}
-                            placeholder="Enter business description"
-                            multiline
-                            rows={3}
-                            sx={{ mb: 2 }}
-                        />
-                        <Button
-                            type="submit"
-                            variant="contained"
-                            color="primary"
-                            fullWidth
-                        >
-                            Update Business
-                        </Button>
-                    </Box>
-                </Box>
-            </Drawer>
+            <BusinessUserEditDrawer
+                open={editUserOpen}
+                onClose={() => setEditUserOpen(false)}
+                user={user}
+                onSaved={(u) => setUser(u)}
+            />
         </Box>
     );
-}; 
+};

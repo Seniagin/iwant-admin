@@ -92,7 +92,15 @@ export const CategoriesPage: React.FC = () => {
     };
 
     return (
-        <Box sx={{ width: '100%', boxSizing: 'border-box', mx: 'auto', p: 3 }}>
+        <Box
+            sx={{
+                width: '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
+                px: { xs: 2, sm: 2.5, md: 3 },
+                py: 3,
+            }}
+        >
             <Typography variant="h4" component="h2" gutterBottom align="center">
                 Categories Management
             </Typography>

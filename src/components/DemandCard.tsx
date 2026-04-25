@@ -14,7 +14,11 @@ import {
     IconButton
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { ICategory, IOffer, createOffer } from '../service/business.api.service';
+import {
+    createAdminOfferForDemand,
+    type AdminCreateOfferDto,
+    type ICategory,
+} from '../service/business.api.service';
 import { useSnackbar } from '../contexts/SnackbarContext';
 
 interface IDemand {
@@ -26,9 +30,11 @@ interface IDemand {
 
 interface DemandCardProps {
     demand: IDemand;
+    /** Business UUID — required for POST /admin/demands/:id/offers */
+    businessId: string;
 }
 
-export const DemandCard: React.FC<DemandCardProps> = ({ demand }) => {
+export const DemandCard: React.FC<DemandCardProps> = ({ demand, businessId }) => {
     const [isOfferDialogOpen, setIsOfferDialogOpen] = useState(false);
     const [comment, setComment] = useState('');
     const { showSuccess, showError } = useSnackbar();
@@ -45,23 +51,21 @@ export const DemandCard: React.FC<DemandCardProps> = ({ demand }) => {
     };
 
     const handleMakeOffer = async () => {
-        if (!comment.trim()) {
-            showError('Please enter a comment');
+        const demandId = Number.parseInt(demand.id, 10);
+        if (!Number.isFinite(demandId)) {
+            showError('Invalid demand id');
             return;
         }
+        const body: AdminCreateOfferDto = { businessId };
+        const trimmed = comment.trim();
+        if (trimmed) body.comment = trimmed;
 
         try {
-            const offer: IOffer = {
-                demandId: parseInt(demand.id),
-                serviceId: '', // No service needed anymore
-                comment: comment.trim()
-            };
-
-            await createOffer(offer);
+            await createAdminOfferForDemand(demandId, body);
             showSuccess('Offer created successfully!');
             setIsOfferDialogOpen(false);
             setComment('');
-        } catch (error) {
+        } catch {
             showError('Failed to create offer. Please try again.');
         }
     };
@@ -86,7 +90,7 @@ export const DemandCard: React.FC<DemandCardProps> = ({ demand }) => {
                             {formatDate(demand.createdAt)}
                         </Typography>
                     </Box>
-                    <Typography variant="body1" sx={{ mb: 2 }}>
+                    <Typography variant="body1" sx={{ mb:  2 }}>
                         {demand.translation}
                     </Typography>
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -138,11 +142,7 @@ export const DemandCard: React.FC<DemandCardProps> = ({ demand }) => {
                     <Button onClick={handleCloseDialog}>
                         Cancel
                     </Button>
-                    <Button 
-                        onClick={handleMakeOffer}
-                        variant="contained"
-                        disabled={!comment.trim()}
-                    >
+                    <Button onClick={() => void handleMakeOffer()} variant="contained">
                         Submit Offer
                     </Button>
                 </DialogActions>

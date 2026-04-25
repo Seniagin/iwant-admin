@@ -60,7 +60,7 @@ export const PineconeIndexStats = forwardRef<PineconeIndexStatsRef>((props, ref)
     }, []);
 
     return (
-        <Box sx={{ mb: 4, maxWidth: 1200, mx: 'auto' }}>
+        <Box sx={{ mb: 4, width: '100%', maxWidth: '100%' }}>
             <Card>
                 <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>

@@ -18,17 +18,13 @@ import { ICategory } from '../service/business.api.service';
 import { getCategories } from '../service/search.api.service';
 import {
     getBusinessCategoryRecommendations,
-    getBusinessCategorySuggestions,
     addCategoryToBusiness,
-    removeCategoryFromBusiness,
-    createCategory
+    removeCategoryFromBusiness
 } from '../service/categories.api.service';
-import { CategorySuggestions } from './CategorySuggestions';
 
 interface BusinessCategoriesSectionProps {
     businessId: string;
     businessCategories: ICategory[];
-    businessDescription?: string;
     onCategoriesChange: (categories: ICategory[]) => void;
     onError: (error: string) => void;
 }
@@ -36,7 +32,6 @@ interface BusinessCategoriesSectionProps {
 export const BusinessCategoriesSection: React.FC<BusinessCategoriesSectionProps> = ({
     businessId,
     businessCategories,
-    businessDescription,
     onCategoriesChange,
     onError
 }) => {
@@ -46,6 +41,7 @@ export const BusinessCategoriesSection: React.FC<BusinessCategoriesSectionProps>
     const [categoriesError, setCategoriesError] = useState<string | null>(null);
     const [addingCategory, setAddingCategory] = useState(false);
     const [removingCategory, setRemovingCategory] = useState<string | null>(null);
+    const [selectedCategoryValue, setSelectedCategoryValue] = useState<ICategory | null>(null);
 
     // Recommended categories state
     const [recommendedCategories, setRecommendedCategories] = useState<ICategory[]>([]);
@@ -81,6 +77,8 @@ export const BusinessCategoriesSection: React.FC<BusinessCategoriesSectionProps>
             // Update local state
             const updatedCategories = [...businessCategories, category];
             onCategoriesChange(updatedCategories);
+            // Reset Autocomplete value
+            setSelectedCategoryValue(null);
         } catch (error) {
             onError('Failed to add category to business');
         } finally {
@@ -134,7 +132,7 @@ export const BusinessCategoriesSection: React.FC<BusinessCategoriesSectionProps>
     );
 
     return (
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 3, width: 'fit-content', maxWidth: '700px' }}>
             <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
                 <CategoryIcon sx={{ mr: 1 }} />
                 Business Categories
@@ -165,9 +163,11 @@ export const BusinessCategoriesSection: React.FC<BusinessCategoriesSectionProps>
                 {/* Add Category Section */}
                 {!loadingCategories && availableCategories.length > 0 && (
                     <Autocomplete
+                        value={selectedCategoryValue}
                         options={availableCategories}
                         getOptionLabel={(option) => option.name}
                         onChange={(event, newValue) => {
+                            setSelectedCategoryValue(newValue);
                             if (newValue) {
                                 handleAddCategory(newValue);
                             }
@@ -278,32 +278,6 @@ export const BusinessCategoriesSection: React.FC<BusinessCategoriesSectionProps>
                     </Box>
                 </Collapse>
             </Box>
-
-            {/* Category Suggestions Section */}
-            {businessDescription && (
-                <CategorySuggestions
-                    query={businessDescription}
-                    businessId={businessId}
-                    onCategoryCreated={async (categoryName) => {
-                        // Refresh categories list after creating a new category
-                        try {
-                            setLoadingCategories(true);
-                            setCategoriesError(null);
-                            const categories = await getCategories();
-                            setAllCategories(categories);
-                            // Find the newly created category and add it to the business
-                            const newCategory = categories.find((cat: ICategory) => cat.name === categoryName);
-                            if (newCategory) {
-                                await handleAddCategory(newCategory);
-                            }
-                        } catch (error) {
-                            setCategoriesError('Failed to refresh categories');
-                        } finally {
-                            setLoadingCategories(false);
-                        }
-                    }}
-                />
-            )}
 
             <Divider sx={{ mt: 2 }} />
         </Box>
