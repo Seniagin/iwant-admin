@@ -1,7 +1,39 @@
 export interface ICategory {
     id: string;
     name: string;
+    description?: string | null;
 }
+
+export type CategorySortBy = 'name' | 'businessCount' | 'createdAt' | 'updatedAt';
+export type SortOrder = 'ASC' | 'DESC';
+
+export interface ICategoryWithCount extends ICategory {
+    businessCount: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface PaginatedCategoriesResult {
+    items: ICategoryWithCount[];
+    meta: { page: number; limit: number; total: number; totalPages: number };
+}
+
+export const getCategoriesPaginated = async (params: {
+    page: number;
+    limit: number;
+    sortBy: CategorySortBy;
+    sortOrder: SortOrder;
+}): Promise<PaginatedCategoriesResult> => {
+    const qs = new URLSearchParams({
+        page: String(params.page),
+        limit: String(params.limit),
+        sortBy: params.sortBy,
+        sortOrder: params.sortOrder,
+    });
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/categories/paginated?${qs}`);
+    if (!response.ok) throw new Error('Failed to fetch categories');
+    return response.json();
+};
 
 
 const API_URL = process.env.REACT_APP_API_URL;

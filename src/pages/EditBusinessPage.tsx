@@ -15,6 +15,7 @@ import { useSnackbar } from '../contexts/SnackbarContext';
 import { BusinessForm } from '../components/BusinessForm';
 import { ContactsForm } from '../components/ContactsForm';
 import { BusinessCategoriesSection } from '../components/BusinessCategoriesSection';
+import { CategoryCoveragePanel } from '../components/CategoryCoveragePanel';
 import type { Location } from '../types/location';
 import LocationPicker, { LocationMapPreview } from '../components/LocationPicker/LocationPicker';
 
@@ -33,16 +34,11 @@ const EditBusinessPage: React.FC = () => {
         instagram: '',
     });
     const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+    const [categoriesVersion, setCategoriesVersion] = useState(0);
     const navigate = useNavigate();
     const { showSuccess, showError } = useSnackbar();
 
-    const backToUser = () => {
-        if (userId) {
-            navigate(`/business-users/${userId}`);
-        } else {
-            navigate('/business-users');
-        }
-    };
+    const backToUser = () => navigate(-1);
 
     useEffect(() => {
         const uid = userId ? Number.parseInt(userId, 10) : NaN;
@@ -127,7 +123,7 @@ const EditBusinessPage: React.FC = () => {
             }}
         >
             <Button startIcon={<ArrowBackIcon />} onClick={backToUser} sx={{ mb: 2 }}>
-                Back to user
+                Back
             </Button>
 
             <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', minHeight: '75vh', flexWrap: 'wrap' }}>
@@ -180,15 +176,23 @@ const EditBusinessPage: React.FC = () => {
 
             <Box sx={{ flex: 1, pl: { md: 3 }, minWidth: 0, pt: { xs: 3, md: 0 } }}>
                 {business.id && (
-                    <BusinessCategoriesSection
-                        businessId={business.id}
-                        businessCategories={business.categories || []}
-                        onCategoriesChange={(categories) => {
-                            setFormState((prev) => ({ ...prev, categories }));
-                            setBusiness((prev) => (prev ? { ...prev, categories } : null));
-                        }}
-                        onError={showError}
-                    />
+                    <>
+                        <BusinessCategoriesSection
+                            businessId={business.id}
+                            businessCategories={business.categories || []}
+                            onCategoriesChange={(categories) => {
+                                setFormState((prev) => ({ ...prev, categories }));
+                                setBusiness((prev) => (prev ? { ...prev, categories } : null));
+                                setCategoriesVersion((v) => v + 1);
+                            }}
+                            onError={showError}
+                        />
+                        <CategoryCoveragePanel
+                            businessId={business.id}
+                            resetKey={categoriesVersion}
+                            onCategoryAdded={() => setCategoriesVersion((v) => v + 1)}
+                        />
+                    </>
                 )}
             </Box>
             </Box>

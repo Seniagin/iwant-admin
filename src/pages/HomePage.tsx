@@ -133,6 +133,26 @@ export const HomePage: React.FC = () => {
                                 All demands in the system
                             </Typography>
                         </Paper>
+                        <Paper
+                            elevation={2}
+                            sx={{
+                                p: 3,
+                                flex: '1 1 240px',
+                                maxWidth: 320,
+                                minWidth: 200,
+                                textAlign: 'center',
+                            }}
+                        >
+                            <Typography variant="overline" color="text.secondary" display="block">
+                                Demands with offers
+                            </Typography>
+                            <Typography variant="h3" component="p" sx={{ fontWeight: 600, my: 1 }}>
+                                {stats.demandsWithOffersPercent}%
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                {stats.demandsWithOffers} of {stats.totalDemands} demands received an offer
+                            </Typography>
+                        </Paper>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
                         <Button

@@ -134,6 +134,18 @@ export const createUser = async (body: CreateAdminUserDto): Promise<AdminUserDet
     return response.json();
 };
 
+/** DELETE /admin/user/{id} */
+export const deleteUser = async (id: number): Promise<void> => {
+    const response = await fetch(`${API_URL}/admin/user/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) {
+        if (response.status === 404) throw new Error('User not found');
+        throw new Error('Failed to delete user');
+    }
+};
+
 /** PATCH /admin/user/{id} */
 export const updateUser = async (id: number, body: UpdateAdminUserDto): Promise<AdminUserDetailResponseDto> => {
     const response = await fetch(`${API_URL}/admin/user/${id}`, {

@@ -250,28 +250,38 @@ export const BusinessCategoriesSection: React.FC<BusinessCategoriesSectionProps>
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                                     These categories are recommended based on your business details:
                                 </Typography>
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                     {recommendedCategories.map((category) => (
-                                        <Chip
+                                        <Box
                                             key={category.id}
-                                            label={category.name}
-                                            variant="outlined"
-                                            color="primary"
-                                            size="medium"
-                                            clickable
                                             onClick={() => handleAddRecommendedCategory(category)}
                                             sx={{
-                                                fontWeight: 500,
-                                                '&:hover': {
-                                                    backgroundColor: 'primary.light',
-                                                    color: 'white'
-                                                }
+                                                display: 'flex',
+                                                alignItems: 'flex-start',
+                                                gap: 1.5,
+                                                p: 1.5,
+                                                border: '1px solid',
+                                                borderColor: 'primary.light',
+                                                borderRadius: 1,
+                                                cursor: 'pointer',
+                                                backgroundColor: 'background.paper',
+                                                '&:hover': { backgroundColor: 'primary.light', color: 'white', '& .cat-desc': { color: 'rgba(255,255,255,0.8)' } },
                                             }}
-                                        />
+                                        >
+                                            <AddIcon fontSize="small" sx={{ mt: 0.2, flexShrink: 0 }} />
+                                            <Box>
+                                                <Typography variant="body2" fontWeight={500}>{category.name}</Typography>
+                                                {category.description && (
+                                                    <Typography className="cat-desc" variant="caption" color="text.secondary">
+                                                        {category.description}
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                        </Box>
                                     ))}
                                 </Box>
-                                <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-                                    💡 Click on a category to add it to this business
+                                <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
+                                    Click on a category to add it to this business
                                 </Typography>
                             </>
                         )}

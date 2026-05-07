@@ -22,11 +22,15 @@ export interface IBusiness {
     contacts?: IBusinessContacts;
     categories?: ICategory[];
     location?: { longitude: number; latitude: number };
+    userId?: number | null;
+    coverageScore?: number | null;
+    coverageAnalyzedAt?: string | null;
 }
 
 export interface ICategory {
     id: string;
     name: string;
+    description?: string | null;
 }
 
 /** Admin API `AdminBusinessUserResponseDto` */
@@ -81,6 +85,56 @@ export interface AdminCreateOfferDto {
 }
 
 const API_URL = process.env.REACT_APP_API_URL;
+
+export interface BusinessCoverageResult {
+    score: number | null;
+    coveredServices: string[];
+    uncoveredServices: string[];
+    summary: string;
+    suggestedCategories: { name: string; description: string }[];
+    analyzedAt: string | null;
+}
+
+export const getBusinessCoverage = async (businessId: string): Promise<BusinessCoverageResult | null> => {
+    const response = await fetch(`${API_URL}/admin/business/${businessId}/coverage`);
+    if (!response.ok) throw new Error('Failed to fetch coverage');
+    return response.json();
+};
+
+export const analyzeBusinessCoverage = async (businessId: string): Promise<BusinessCoverageResult> => {
+    const response = await fetch(`${API_URL}/admin/business/${businessId}/coverage`, { method: 'POST' });
+    if (!response.ok) throw new Error('Failed to analyze coverage');
+    return response.json();
+};
+
+export const createAndAssignSuggestedCategory = async (
+    businessId: string,
+    name: string,
+    description: string,
+): Promise<void> => {
+    const response = await fetch(`${API_URL}/admin/business/${businessId}/categories/suggested`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description }),
+    });
+    if (!response.ok) throw new Error('Failed to add suggested category');
+};
+
+export const getBusinessesByCategoryAndLocation = async (
+    categoryId: string,
+    latitude: number,
+    longitude: number,
+    radiusKm: number,
+): Promise<IBusiness[]> => {
+    const qs = new URLSearchParams({
+        latitude: String(latitude),
+        longitude: String(longitude),
+        radiusKm: String(radiusKm),
+    });
+    const response = await fetch(`${API_URL}/admin/business/category/${categoryId}/nearby?${qs}`);
+    if (!response.ok) throw new Error('Failed to fetch businesses');
+    return response.json();
+};
 
 export const getBusinesses = async (): Promise<IBusiness[]> => {
     const response = await fetch(`${API_URL}/admin/business/list`);

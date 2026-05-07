@@ -73,6 +73,31 @@ export const DemandEditDrawer: React.FC<DemandEditDrawerProps> = ({
                             <Typography variant="body1" sx={{ mb: 2 }}>
                                 {demand.translation ?? '—'}
                             </Typography>
+                            {demand.categoryMatchConfidence && (
+                                <>
+                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                        Category match
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                        <Chip
+                                            label={demand.categoryMatchConfidence}
+                                            size="small"
+                                            color={
+                                                demand.categoryMatchConfidence === 'high'
+                                                    ? 'success'
+                                                    : demand.categoryMatchConfidence === 'medium'
+                                                      ? 'warning'
+                                                      : 'default'
+                                            }
+                                        />
+                                    </Box>
+                                    {demand.categoryMatchReason && (
+                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                            {demand.categoryMatchReason}
+                                        </Typography>
+                                    )}
+                                </>
+                            )}
                             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                                 Status
                             </Typography>

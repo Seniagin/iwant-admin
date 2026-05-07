@@ -1,5 +1,6 @@
 import React, { useContext, useState } from 'react';
-import { Box, Chip, CircularProgress, IconButton, TableCell, TableRow } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { Box, Chip, CircularProgress, IconButton, Link, TableCell, TableRow, Tooltip } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import NotificationsIcon from '@mui/icons-material/Notifications';
@@ -7,6 +8,16 @@ import { deleteDemand, notifyBusinesses, type DemandResponseDto } from '../servi
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { DemandEditOutletContext } from '../contexts/DemandEditOutletContext';
 import { demandStatusChipColor, demandTextPreview, formatDemandStatus } from '../utils/demandDisplay';
+
+const confidenceChip = (confidence?: 'high' | 'medium' | 'low' | null, reason?: string | null) => {
+    if (!confidence) return null;
+    const color = confidence === 'high' ? 'success' : confidence === 'medium' ? 'warning' : 'error';
+    return (
+        <Tooltip title={reason ?? ''} placement="top" arrow>
+            <Chip label={confidence} color={color} size="small" sx={{ ml: 0.5, cursor: reason ? 'help' : 'default' }} />
+        </Tooltip>
+    );
+};
 
 export type DemandTableRowVariant = 'admin' | 'userProfile';
 
@@ -21,6 +32,8 @@ export interface DemandTableRowProps {
     showActions?: boolean;
     /** Extra controls in the actions cell (e.g. business-context “Make offer”). */
     extraActions?: (demand: DemandResponseDto) => React.ReactNode;
+    /** Extra <TableCell> rendered between Status and Created in the admin variant. */
+    extraCell?: (demand: DemandResponseDto) => React.ReactNode;
 }
 
 export const DemandTableRow: React.FC<DemandTableRowProps> = ({
@@ -31,9 +44,11 @@ export const DemandTableRow: React.FC<DemandTableRowProps> = ({
     formatDateTime,
     showActions = true,
     extraActions,
+    extraCell,
 }) => {
     const { showSuccess, showError } = useSnackbar();
     const editOutlet = useContext(DemandEditOutletContext);
+    const navigate = useNavigate();
     const [pending, setPending] = useState<'notify' | 'delete' | null>(null);
 
     const handleNotify = async () => {
@@ -114,7 +129,12 @@ export const DemandTableRow: React.FC<DemandTableRowProps> = ({
                 >
                     {demandTextPreview(demand, 120)}
                 </TableCell>
-                <TableCell size={isSmall ? 'small' : 'medium'}>{demand.category?.name ?? '—'}</TableCell>
+                <TableCell size={isSmall ? 'small' : 'medium'}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+                        {demand.category?.name ?? '—'}
+                        {confidenceChip(demand.categoryMatchConfidence, demand.categoryMatchReason)}
+                    </Box>
+                </TableCell>
                 <TableCell size={isSmall ? 'small' : 'medium'}>
                     <Chip
                         size="small"
@@ -140,7 +160,31 @@ export const DemandTableRow: React.FC<DemandTableRowProps> = ({
             </TableCell>
             <TableCell size={cellSize}>{demand.transcription ?? '—'}</TableCell>
             <TableCell size={cellSize}>{demand.translation ?? '—'}</TableCell>
-            <TableCell size={cellSize}>{demand.category?.name || 'No category'}</TableCell>
+            <TableCell size={cellSize}>
+                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+                    {demand.category ? (
+                        <Link
+                            component="button"
+                            underline="hover"
+                            onClick={() =>
+                                navigate(`/categories/${demand.category!.id}/businesses`, {
+                                    state: {
+                                        categoryName: demand.category!.name,
+                                        latitude: demand.user?.location?.latitude,
+                                        longitude: demand.user?.location?.longitude,
+                                    },
+                                })
+                            }
+                            sx={{ cursor: 'pointer', textAlign: 'left' }}
+                        >
+                            {demand.category.name}
+                        </Link>
+                    ) : (
+                        'No category'
+                    )}
+                    {confidenceChip(demand.categoryMatchConfidence, demand.categoryMatchReason)}
+                </Box>
+            </TableCell>
             <TableCell size={cellSize}>
                 <Chip
                     label={formatDemandStatus(demand.demandStatus)}
@@ -148,6 +192,7 @@ export const DemandTableRow: React.FC<DemandTableRowProps> = ({
                     size="small"
                 />
             </TableCell>
+            {extraCell && <TableCell size={cellSize} align="center">{extraCell(demand)}</TableCell>}
             <TableCell size={cellSize}>{formatDateTime(demand.createdAt)}</TableCell>
             <TableCell size={cellSize}>{formatDateTime(demand.updatedAt)}</TableCell>
             {actionsCell}

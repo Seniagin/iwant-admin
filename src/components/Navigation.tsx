@@ -37,6 +37,24 @@ export const Navigation: React.FC = () => {
                     >
                         Business Users
                     </Link>
+                    <Link
+                        to="/businesses"
+                        className={`nav-link ${location.pathname.startsWith('/businesses') ? 'active' : ''}`}
+                    >
+                        Businesses
+                    </Link>
+                    <Link
+                        to="/low-coverage-demands"
+                        className={`nav-link ${location.pathname === '/low-coverage-demands' ? 'active' : ''}`}
+                    >
+                        Low Coverage
+                    </Link>
+                    <Link
+                        to="/rejected-messages"
+                        className={`nav-link ${location.pathname === '/rejected-messages' ? 'active' : ''}`}
+                    >
+                        Rejected
+                    </Link>
                 </div>
             </div>
         </nav>

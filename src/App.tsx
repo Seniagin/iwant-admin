@@ -13,6 +13,10 @@ import { UsersPage } from './pages/UsersPage';
 import { UserCreatePage } from './pages/UserCreatePage';
 import { UserDetailsPage } from './pages/UserDetailsPage';
 import EditBusinessPage from './pages/EditBusinessPage';
+import { CategoryBusinessesPage } from './pages/CategoryBusinessesPage';
+import { LowCoverageDemandsPage } from './pages/LowCoverageDemandsPage';
+import { RejectedMessagesPage } from './pages/RejectedMessagesPage';
+import { BusinessesListPage } from './pages/BusinessesListPage';
 import { SnackbarProvider } from './contexts/SnackbarContext';
 
 function App() {
@@ -36,6 +40,11 @@ function App() {
               <Route path="/business-users" element={<BusinessUsersPage />} />
               <Route path="/business-users/new" element={<BusinessUserCreatePage />} />
               <Route path="/business-users/:userId" element={<BusinessUserDetailsPage />} />
+              <Route path="/categories/:categoryId/businesses" element={<CategoryBusinessesPage />} />
+              <Route path="/low-coverage-demands" element={<LowCoverageDemandsPage />} />
+              <Route path="/businesses" element={<BusinessesListPage />} />
+
+              <Route path="/rejected-messages" element={<RejectedMessagesPage />} />
             </Routes>
           </Layout>
         </div>

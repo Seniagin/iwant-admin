@@ -11,10 +11,17 @@ export interface DemandResponseDto {
     transcription?: string | null;
     translation?: string | null;
     summarizedTranslation?: string | null;
+    categoryMatchConfidence?: 'high' | 'medium' | 'low' | null;
+    categoryMatchReason?: string | null;
     telegramMessageId?: number | null;
     telegramChatId?: number | string | null;
     createdAt: string;
     updatedAt: string;
+    availableBusinessCount?: number | null;
+    user?: {
+        id: number;
+        location?: { longitude: number; latitude: number } | null;
+    } | null;
     category?: {
         id: string;
         name: string;
@@ -203,7 +210,26 @@ export interface AdminStatisticsResponseDto {
     totalUsers: number;
     totalBusinessUsers: number;
     totalDemands: number;
+    demandsWithOffers: number;
+    demandsWithOffersPercent: number;
 }
+
+export const getLowCoverageDemands = async (params?: {
+    threshold?: number;
+    page?: number;
+    limit?: number;
+}): Promise<PaginatedDemandsResponseDto> => {
+    const threshold = params?.threshold ?? 5;
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 200;
+    const qs = new URLSearchParams({ threshold: String(threshold), page: String(page), limit: String(limit) });
+    const response = await fetch(`${API_URL}/admin/demands/low-coverage?${qs}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) throw new Error('Failed to fetch low-coverage demands');
+    return response.json();
+};
 
 export const getAdminStatistics = async (): Promise<AdminStatisticsResponseDto> => {
     const response = await fetch(`${API_URL}/admin/statistics`, {
