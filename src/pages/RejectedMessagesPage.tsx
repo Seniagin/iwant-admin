@@ -122,6 +122,7 @@ export const RejectedMessagesPage: React.FC = () => {
                                     <TableCell>ID</TableCell>
                                     <TableCell>Message</TableCell>
                                     <TableCell>Reason</TableCell>
+                                    <TableCell>AI justification</TableCell>
                                     <TableCell>Telegram user</TableCell>
                                     <TableCell>Date</TableCell>
                                 </TableRow>
@@ -132,7 +133,7 @@ export const RejectedMessagesPage: React.FC = () => {
                                         <TableCell sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
                                             {item.id}
                                         </TableCell>
-                                        <TableCell sx={{ maxWidth: 480, wordBreak: 'break-word' }}>
+                                        <TableCell sx={{ maxWidth: 320, wordBreak: 'break-word' }}>
                                             {item.text}
                                         </TableCell>
                                         <TableCell>
@@ -141,6 +142,9 @@ export const RejectedMessagesPage: React.FC = () => {
                                                 color={REASON_COLORS[item.reason]}
                                                 size="small"
                                             />
+                                        </TableCell>
+                                        <TableCell sx={{ maxWidth: 340, wordBreak: 'break-word', color: 'text.secondary', fontSize: 13 }}>
+                                            {item.validationJustification ?? '—'}
                                         </TableCell>
                                         <TableCell sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
                                             {item.telegramUserId ?? '—'}

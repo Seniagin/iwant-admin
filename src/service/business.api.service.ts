@@ -234,6 +234,30 @@ export const getBusinessDemands = async (businessId: string): Promise<DemandResp
     return items;
 };
 
+export interface BusinessOfferDto {
+    id: number;
+    demandId: number;
+    status: 'pending' | 'accepted' | 'rejected';
+    price: number | null;
+    time: string | null;
+    comment: string | null;
+    createdAt: string;
+    demand: {
+        id: number;
+        summarizedTranslation: string | null;
+        translation: string | null;
+        transcription: string | null;
+        createdAt: string;
+        category: { id: string; name: string } | null;
+    } | null;
+}
+
+export const getBusinessOffers = async (businessId: string): Promise<BusinessOfferDto[]> => {
+    const response = await fetch(`${API_URL}/admin/business/${businessId}/offers`);
+    if (!response.ok) throw new Error('Failed to fetch business offers');
+    return response.json();
+};
+
 export const getBusinessUsers = async (): Promise<IBusinessUser[]> => {
     const response = await fetch(`${API_URL}/admin/business-users`);
     if (!response.ok) throw new Error('Failed to fetch business users');

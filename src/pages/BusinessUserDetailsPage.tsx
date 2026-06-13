@@ -68,7 +68,7 @@ export const BusinessUserDetailsPage: React.FC = () => {
     };
 
     const handleEditBusiness = (business: IBusiness) => {
-        navigate(`/business-users/${userId}/businesses/${business.id}/edit`);
+        navigate(`/business-users/${userId}/businesses/${business.id}`);
     };
 
     const handleDeleteBusiness = async (business: IBusiness) => {

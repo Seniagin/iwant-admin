@@ -13,6 +13,8 @@ import { UsersPage } from './pages/UsersPage';
 import { UserCreatePage } from './pages/UserCreatePage';
 import { UserDetailsPage } from './pages/UserDetailsPage';
 import EditBusinessPage from './pages/EditBusinessPage';
+import BusinessDashboardPage from './pages/BusinessDashboardPage';
+import BusinessDemandsDetailPage from './pages/BusinessDemandsDetailPage';
 import { CategoryBusinessesPage } from './pages/CategoryBusinessesPage';
 import { LowCoverageDemandsPage } from './pages/LowCoverageDemandsPage';
 import { RejectedMessagesPage } from './pages/RejectedMessagesPage';
@@ -33,6 +35,17 @@ function App() {
               <Route path="/users" element={<UsersPage />} />
               <Route path="/users/new" element={<UserCreatePage />} />
               <Route path="/users/:userId" element={<UserDetailsPage />} />
+              {/* Dashboard reachable both from business-users and businesses list */}
+              <Route path="/businesses/:businessId" element={<BusinessDashboardPage />} />
+              <Route path="/businesses/:businessId/demands" element={<BusinessDemandsDetailPage />} />
+              <Route
+                path="/business-users/:userId/businesses/:businessId"
+                element={<BusinessDashboardPage />}
+              />
+              <Route
+                path="/business-users/:userId/businesses/:businessId/demands"
+                element={<BusinessDemandsDetailPage />}
+              />
               <Route
                 path="/business-users/:userId/businesses/:businessId/edit"
                 element={<EditBusinessPage />}

@@ -6,6 +6,7 @@ export interface RejectedMessage {
     id: number;
     text: string;
     reason: RejectionReason;
+    validationJustification: string | null;
     telegramUserId: number | null;
     telegramChatId: number | null;
     telegramMessageId: number | null;
@@ -33,7 +34,7 @@ export const listRejectedMessages = async (params?: {
     });
     if (params?.reason) qs.set('reason', params.reason);
 
-    const response = await fetch(`${API_URL}/admin/rejected-messages?${qs}`, {
+    const response = await fetch(`${API_URL}/admin/demands/rejected?${qs}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
     });
