@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Box, CircularProgress, Typography } from '@mui/material';
+import { Alert, Box, CircularProgress, MenuItem, Select, Typography, IconButton } from '@mui/material';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { getBusinesses, type IBusiness } from '../service/business.api.service';
+import { getBusinessesPaginated, type IBusiness } from '../service/business.api.service';
 
 // ── design tokens ─────────────────────────────────────────────────────────────
 const BG_PAGE    = '#f1f5f9';
@@ -186,28 +187,36 @@ const BusinessRow: React.FC<{ business: IBusiness; onClick(): void; even: boolea
         );
     };
 
+const PAGE_SIZES = [25, 50, 100];
+
 // ── page ──────────────────────────────────────────────────────────────────────
 export const BusinessesListPage: React.FC = () => {
     const [businesses, setBusinesses] = useState<IBusiness[]>([]);
+    const [total, setTotal]           = useState(0);
     const [loading, setLoading]       = useState(true);
     const [error, setError]           = useState<string | null>(null);
+    const [page, setPage]             = useState(1);
+    const [pageSize, setPageSize]     = useState(25);
     const navigate = useNavigate();
 
     useEffect(() => {
-        getBusinesses()
-            .then(setBusinesses)
+        setLoading(true);
+        getBusinessesPaginated(page, pageSize)
+            .then((res) => { setBusinesses(res.data); setTotal(res.total); })
             .catch(() => setError('Failed to load businesses'))
             .finally(() => setLoading(false));
-    }, []);
+    }, [page, pageSize]);
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
     const stats = useMemo(() => ({
-        total:        businesses.length,
+        total,
         analyzed:     businesses.filter((b) => b.coverageScore != null).length,
         highCoverage: businesses.filter((b) => (b.coverageScore ?? 0) >= 70).length,
         noCats:       businesses.filter((b) => !b.categories?.length).length,
-    }), [businesses]);
+    }), [businesses, total]);
 
-    if (loading) return (
+    if (loading && businesses.length === 0) return (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
             <CircularProgress sx={{ color: ACCENT }} />
         </Box>
@@ -278,6 +287,50 @@ export const BusinessesListPage: React.FC = () => {
                                     onClick={() => navigate(b.userId ? `/business-users/${b.userId}/businesses/${b.id}` : `/businesses/${b.id}`)}
                                 />
                             ))}
+                        </Box>
+                    </Box>
+                )}
+
+                {/* ── Pagination footer ── */}
+                {total > 0 && (
+                    <Box sx={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        px: 2, py: 1.25, borderTop: '1px solid #f1f5f9', bgcolor: '#f8fafc',
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>Rows per page:</Typography>
+                            <Select
+                                size="small"
+                                value={pageSize}
+                                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                                sx={{ fontSize: 12, height: 28, '.MuiOutlinedInput-notchedOutline': { borderColor: '#e2e8f0' } }}
+                            >
+                                {PAGE_SIZES.map((s) => (
+                                    <MenuItem key={s} value={s} sx={{ fontSize: 12 }}>{s}</MenuItem>
+                                ))}
+                            </Select>
+                        </Box>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography sx={{ fontSize: 12, color: '#64748b', mr: 1 }}>
+                                {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+                            </Typography>
+                            <IconButton
+                                size="small"
+                                disabled={page <= 1 || loading}
+                                onClick={() => setPage((p) => p - 1)}
+                                sx={{ color: '#475569', '&:disabled': { color: '#cbd5e1' } }}
+                            >
+                                <ChevronLeftIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
+                            <IconButton
+                                size="small"
+                                disabled={page >= totalPages || loading}
+                                onClick={() => setPage((p) => p + 1)}
+                                sx={{ color: '#475569', '&:disabled': { color: '#cbd5e1' } }}
+                            >
+                                <ChevronRightIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
                         </Box>
                     </Box>
                 )}

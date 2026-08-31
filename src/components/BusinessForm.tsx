@@ -31,6 +31,15 @@ export const BusinessForm: React.FC<BusinessFormProps> = ({
     if (onChange) onChange(updated);
   };
 
+  const handleTranslationChange = (locale: 'en' | 'ru' | 'uk') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const updated = {
+      ...business,
+      descriptionTranslations: { ...business.descriptionTranslations, [locale]: e.target.value },
+    };
+    setBusiness(updated);
+    if (onChange) onChange(updated);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await onSubmit(business);
@@ -57,6 +66,36 @@ export const BusinessForm: React.FC<BusinessFormProps> = ({
             placeholder="Enter business description"
             multiline
             rows={3}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="Description (English)"
+            value={business.descriptionTranslations?.en || ''}
+            onChange={handleTranslationChange('en')}
+            placeholder="Auto-generated on save — edit to override"
+            multiline
+            rows={2}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="Description (Русский)"
+            value={business.descriptionTranslations?.ru || ''}
+            onChange={handleTranslationChange('ru')}
+            placeholder="Auto-generated on save — edit to override"
+            multiline
+            rows={2}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="Description (Українська)"
+            value={business.descriptionTranslations?.uk || ''}
+            onChange={handleTranslationChange('uk')}
+            placeholder="Auto-generated on save — edit to override"
+            multiline
+            rows={2}
             sx={{ mb: 2 }}
           />
           {!hideSubmitButton && (

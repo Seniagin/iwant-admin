@@ -9,6 +9,7 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import { getBusinessById, getBusinessDemands, getBusinessOffers } from '../service/business.api.service';
 import type { BusinessOfferDto, IBusiness } from '../service/business.api.service';
+import { BusinessParametersPanel } from '../components/BusinessParametersPanel';
 
 // ── design tokens ─────────────────────────────────────────────────────────────
 const HEADER_H    = 60;
@@ -294,6 +295,14 @@ const BusinessDashboardPage: React.FC = () => {
                                 </Box>
                             </Box>
                         </Box>
+                    </Box>
+                </Paper>
+
+                {/* extracted parameters */}
+                <Paper elevation={0} sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: CARD_SHADOW, mt: 3 }}>
+                    <Box sx={{ height: 3, background: 'linear-gradient(90deg, #0ea5e9, #38bdf8)' }} />
+                    <Box sx={{ p: { xs: 3, md: 4 } }}>
+                        <BusinessParametersPanel businessId={business.id} />
                     </Box>
                 </Paper>
 

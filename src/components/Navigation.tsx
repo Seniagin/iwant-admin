@@ -18,7 +18,7 @@ export const Navigation: React.FC = () => {
                     >
                         Categories
                     </Link>
-                    <Link to="/demands" className={`nav-link ${location.pathname === '/demands' ? 'active' : ''}`}>
+                    <Link to="/demands" className={`nav-link ${location.pathname.startsWith('/demands') ? 'active' : ''}`}>
                         Demands
                     </Link>
                     <Link
@@ -44,16 +44,22 @@ export const Navigation: React.FC = () => {
                         Businesses
                     </Link>
                     <Link
-                        to="/low-coverage-demands"
-                        className={`nav-link ${location.pathname === '/low-coverage-demands' ? 'active' : ''}`}
+                        to="/facets"
+                        className={`nav-link ${location.pathname.startsWith('/facets') ? 'active' : ''}`}
                     >
-                        Low Coverage
+                        Parameters
                     </Link>
                     <Link
-                        to="/rejected-messages"
-                        className={`nav-link ${location.pathname === '/rejected-messages' ? 'active' : ''}`}
+                        to="/search-logs"
+                        className={`nav-link ${location.pathname.startsWith('/search-logs') ? 'active' : ''}`}
                     >
-                        Rejected
+                        Search log
+                    </Link>
+                    <Link
+                        to="/playground"
+                        className={`nav-link ${location.pathname === '/playground' ? 'active' : ''}`}
+                    >
+                        🎮 Playground
                     </Link>
                 </div>
             </div>

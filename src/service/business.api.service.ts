@@ -19,6 +19,7 @@ export interface IBusiness {
     id: string;
     name: string;
     description?: string;
+    descriptionTranslations?: Partial<Record<'en' | 'ru' | 'uk', string>> | null;
     contacts?: IBusinessContacts;
     categories?: ICategory[];
     location?: { longitude: number; latitude: number };
@@ -82,6 +83,7 @@ export interface AdminCreateOfferDto {
     price?: number;
     time?: OfferTimingEnum;
     comment?: string;
+    scheduledSlots?: Array<{ date?: string; time?: string }> | null;
 }
 
 const API_URL = process.env.REACT_APP_API_URL;
@@ -141,6 +143,19 @@ export const getBusinesses = async (): Promise<IBusiness[]> => {
     return response.json();
 };
 
+export interface IBusinessesPage {
+    data: IBusiness[];
+    total: number;
+    page: number;
+    limit: number;
+}
+
+export const getBusinessesPaginated = async (page: number, limit: number): Promise<IBusinessesPage> => {
+    const response = await fetch(`${API_URL}/admin/business/list?page=${page}&limit=${limit}`);
+    if (!response.ok) throw new Error('Failed to fetch businesses');
+    return response.json();
+};
+
 export const getBusinessById = async (id: string): Promise<IBusiness> => {
     const response = await fetch(`${API_URL}/admin/business/${id}`);
     return response.json();
@@ -182,8 +197,34 @@ export const deleteBusiness = async (businessId: string): Promise<void> => {
     }
 };
 
+/** One vectorization parameter with whatever was extracted for this business. */
+export interface IBusinessParameter {
+    key: string;
+    label: string;
+    valueType: 'enum' | 'text_list' | 'text' | 'number' | 'boolean';
+    role: 'vector' | 'filter' | 'ranking' | 'display';
+    enabled: boolean;
+    /** null when nothing was extracted for this parameter. */
+    value: string[] | string | null;
+}
+
+export const getBusinessParameters = async (businessId: string): Promise<IBusinessParameter[]> => {
+    const response = await fetch(`${API_URL}/admin/business/${businessId}/parameters`);
+    if (!response.ok) throw new Error('Failed to fetch parameters');
+    return response.json();
+};
+
+export const reconcileBusinessCategories = async (businessId: string): Promise<{ categories: string[] }> => {
+    const response = await fetch(`${API_URL}/admin/business/${businessId}/reconcile-categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) throw new Error('Failed to reconcile categories');
+    return response.json();
+};
+
 export const addCategoryToBusiness = async (businessId: string, categoryId: string): Promise<void> => {
-    const response = await fetch(`${API_URL}/business/${businessId}/categories/${categoryId}`, {
+    const response = await fetch(`${API_URL}/admin/business/${businessId}/category/${categoryId}/add`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -193,8 +234,8 @@ export const addCategoryToBusiness = async (businessId: string, categoryId: stri
 };
 
 export const removeCategoryFromBusiness = async (businessId: string, categoryId: string): Promise<void> => {
-    const response = await fetch(`${API_URL}/business/${businessId}/categories/${categoryId}`, {
-        method: 'DELETE',
+    const response = await fetch(`${API_URL}/admin/business/${businessId}/category/${categoryId}/remove`, {
+        method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         }

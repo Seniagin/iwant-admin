@@ -36,7 +36,7 @@ import { OfferTimingEnum } from '../types/offerTiming';
 const OFFER_TIMING_LABELS: Record<OfferTimingEnum, string> = {
     [OfferTimingEnum.TODAY]: 'Today',
     [OfferTimingEnum.THIS_WEEK]: 'This week',
-    [OfferTimingEnum.AFTER_THIS_WEEK]: 'After this week',
+    [OfferTimingEnum.DISCUSSIBLE]: 'Discussible',
 };
 
 interface BusinessDemandsDialogProps {

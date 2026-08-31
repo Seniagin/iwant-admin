@@ -2,6 +2,15 @@ import { DemandStatusEnum } from '../types/demandStatus';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
+export interface TimingPreference {
+    urgency: 'asap' | 'today' | 'this_week' | 'specific_date' | 'flexible';
+    dateFrom: string | null;
+    dateTo: string | null;
+    timeFrom: string | null;
+    timeTo: string | null;
+    raw: string;
+}
+
 /** Matches Admin API `DemandResponseDto` (OpenAPI /admin/demands). */
 export interface DemandResponseDto {
     id: number;
@@ -18,6 +27,7 @@ export interface DemandResponseDto {
     createdAt: string;
     updatedAt: string;
     availableBusinessCount?: number | null;
+    timingPreference?: TimingPreference | null;
     user?: {
         id: number;
         location?: { longitude: number; latitude: number } | null;
@@ -213,6 +223,18 @@ export interface AdminStatisticsResponseDto {
     demandsWithOffers: number;
     demandsWithOffersPercent: number;
 }
+
+export const getUncategorizedDemands = async (params?: {
+    page?: number;
+    limit?: number;
+}): Promise<PaginatedDemandsResponseDto> => {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 50;
+    const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
+    const response = await fetch(`${API_URL}/admin/demands/uncategorized?${qs}`);
+    if (!response.ok) throw new Error('Failed to fetch uncategorized demands');
+    return response.json();
+};
 
 export const getLowCoverageDemands = async (params?: {
     threshold?: number;

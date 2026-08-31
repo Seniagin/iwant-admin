@@ -18,8 +18,12 @@ import BusinessDemandsDetailPage from './pages/BusinessDemandsDetailPage';
 import { CategoryBusinessesPage } from './pages/CategoryBusinessesPage';
 import { LowCoverageDemandsPage } from './pages/LowCoverageDemandsPage';
 import { RejectedMessagesPage } from './pages/RejectedMessagesPage';
+import { UncategorizedDemandsPage } from './pages/UncategorizedDemandsPage';
 import { BusinessesListPage } from './pages/BusinessesListPage';
 import { SnackbarProvider } from './contexts/SnackbarContext';
+import { PlaygroundPage } from './pages/PlaygroundPage';
+import { FacetsPage } from './pages/FacetsPage';
+import { SearchLogsPage } from './pages/SearchLogsPage';
 
 function App() {
   return (
@@ -32,6 +36,9 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/demands" element={<DemandsPage />} />
+              <Route path="/demands/uncategorized" element={<UncategorizedDemandsPage />} />
+              <Route path="/demands/low-coverage" element={<LowCoverageDemandsPage />} />
+              <Route path="/demands/rejected" element={<RejectedMessagesPage />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/users/new" element={<UserCreatePage />} />
               <Route path="/users/:userId" element={<UserDetailsPage />} />
@@ -54,10 +61,10 @@ function App() {
               <Route path="/business-users/new" element={<BusinessUserCreatePage />} />
               <Route path="/business-users/:userId" element={<BusinessUserDetailsPage />} />
               <Route path="/categories/:categoryId/businesses" element={<CategoryBusinessesPage />} />
-              <Route path="/low-coverage-demands" element={<LowCoverageDemandsPage />} />
               <Route path="/businesses" element={<BusinessesListPage />} />
-
-              <Route path="/rejected-messages" element={<RejectedMessagesPage />} />
+              <Route path="/playground" element={<PlaygroundPage />} />
+              <Route path="/facets" element={<FacetsPage />} />
+              <Route path="/search-logs" element={<SearchLogsPage />} />
             </Routes>
           </Layout>
         </div>

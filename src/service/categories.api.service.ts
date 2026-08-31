@@ -18,6 +18,16 @@ export interface PaginatedCategoriesResult {
     meta: { page: number; limit: number; total: number; totalPages: number };
 }
 
+/**
+ * Full category list, unpaginated. `/categories/paginated` caps limit at 100
+ * server-side, so it can't be used to populate a full picker (there are 600+).
+ */
+export const getAllCategories = async (): Promise<ICategoryWithCount[]> => {
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/categories`);
+    if (!response.ok) throw new Error('Failed to fetch categories');
+    return response.json();
+};
+
 export const getCategoriesPaginated = async (params: {
     page: number;
     limit: number;

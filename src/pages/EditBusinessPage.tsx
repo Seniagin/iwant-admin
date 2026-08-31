@@ -7,13 +7,16 @@ import MapIcon from '@mui/icons-material/Map';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import {
     IBusiness, editUserBusiness, getBusinessById, getUserBusinessDetails,
+    addCategoryToBusiness, reconcileBusinessCategories,
 } from '../service/business.api.service';
+import { getCategories } from '../service/search.api.service';
 import type { ContactsFormInitialValues } from '../components/ContactsForm';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { BusinessForm } from '../components/BusinessForm';
 import { ContactsForm } from '../components/ContactsForm';
 import { BusinessCategoriesSection } from '../components/BusinessCategoriesSection';
 import { CategoryCoveragePanel } from '../components/CategoryCoveragePanel';
+import { BusinessParametersPanel } from '../components/BusinessParametersPanel';
 import { BusinessDemandsSection } from '../components/BusinessDemandsSection';
 import type { Location } from '../types/location';
 import LocationPicker, { LocationMapPreview } from '../components/LocationPicker/LocationPicker';
@@ -51,6 +54,8 @@ const EditBusinessPage: React.FC = () => {
     });
     const [locationPickerOpen, setLocationPickerOpen] = useState(false);
     const [categoriesVersion, setCategoriesVersion]   = useState(0);
+    const [addingAllCategories, setAddingAllCategories] = useState(false);
+    const [reconcilingCategories, setReconcilingCategories] = useState(false);
     const navigate = useNavigate();
     const { showSuccess, showError } = useSnackbar();
 
@@ -82,7 +87,6 @@ const EditBusinessPage: React.FC = () => {
             const { geolocation: _ro, ...contactPayload } = contacts;
             await editUserBusiness(uid, businessId, { ...formState, contacts: contactPayload });
             showSuccess('Saved!');
-            navigate(`/business-users/${userId}`);
         } catch { showError('Failed to save.'); }
         finally { setSaving(false); }
     };
@@ -216,9 +220,64 @@ const EditBusinessPage: React.FC = () => {
                         <Paper elevation={0} sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: CARD_SHADOW }}>
                             <Box sx={{ height: 3, background: 'linear-gradient(90deg, #10b981, #34d399)' }} />
                             <Box sx={{ p: 2.5 }}>
-                                <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#10b981', mb: 2 }}>
-                                    Categories
-                                </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                    <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#10b981' }}>
+                                        Categories
+                                    </Typography>
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        disabled={reconcilingCategories || !business.description}
+                                        title={!business.description ? 'No description to reconcile from' : 'Detect categories from business description'}
+                                        onClick={async () => {
+                                            if (!business.id) return;
+                                            setReconcilingCategories(true);
+                                            try {
+                                                const result = await reconcileBusinessCategories(business.id);
+                                                const updated = await getBusinessById(business.id);
+                                                setBusiness((p) => p ? { ...p, categories: updated.categories } : null);
+                                                setFormState((p) => ({ ...p, categories: updated.categories }));
+                                                setCategoriesVersion((v) => v + 1);
+                                                showSuccess(result.categories.length > 0
+                                                    ? `Reconciled: ${result.categories.join(', ')}`
+                                                    : 'No matching categories found');
+                                            } catch {
+                                                showError('Failed to reconcile categories');
+                                            } finally {
+                                                setReconcilingCategories(false);
+                                            }
+                                        }}
+                                    >
+                                        {reconcilingCategories ? 'Reconciling…' : 'Reconcile'}
+                                    </Button>
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        color="success"
+                                        disabled={addingAllCategories}
+                                        onClick={async () => {
+                                            if (!business.id) return;
+                                            setAddingAllCategories(true);
+                                            try {
+                                                const all = await getCategories();
+                                                const existing = new Set((business.categories ?? []).map((c: any) => c.id));
+                                                const toAdd = all.filter((c: any) => !existing.has(c.id));
+                                                await Promise.all(toAdd.map((c: any) => addCategoryToBusiness(business.id!, c.id)));
+                                                const updated = await getBusinessById(business.id);
+                                                setBusiness((p) => p ? { ...p, categories: updated.categories } : null);
+                                                setFormState((p) => ({ ...p, categories: updated.categories }));
+                                                setCategoriesVersion((v) => v + 1);
+                                                showSuccess(`Added ${toAdd.length} categories`);
+                                            } catch {
+                                                showError('Failed to add all categories');
+                                            } finally {
+                                                setAddingAllCategories(false);
+                                            }
+                                        }}
+                                    >
+                                        {addingAllCategories ? 'Adding…' : 'Add all'}
+                                    </Button>
+                                </Box>
                                 <BusinessCategoriesSection
                                     businessId={business.id}
                                     businessCategories={business.categories || []}
@@ -233,9 +292,27 @@ const EditBusinessPage: React.FC = () => {
                                     <CategoryCoveragePanel
                                         businessId={business.id}
                                         resetKey={categoriesVersion}
-                                        onCategoryAdded={() => setCategoriesVersion((v) => v + 1)}
+                                        onCategoryAdded={async () => {
+                                            setCategoriesVersion((v) => v + 1);
+                                            try {
+                                                const updated = await getBusinessById(business.id!);
+                                                setBusiness((p) => p ? { ...p, categories: updated.categories } : null);
+                                                setFormState((p) => ({ ...p, categories: updated.categories }));
+                                            } catch { /* ignore */ }
+                                        }}
                                     />
                                 </Box>
+                            </Box>
+                        </Paper>
+                    )}
+
+                    {/* Extracted parameters. resetKey is the categories counter:
+                        Reconcile bumps it and Reconcile is what re-extracts these. */}
+                    {business.id && (
+                        <Paper elevation={0} sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: CARD_SHADOW }}>
+                            <Box sx={{ height: 3, background: 'linear-gradient(90deg, #0ea5e9, #38bdf8)' }} />
+                            <Box sx={{ p: 2.5 }}>
+                                <BusinessParametersPanel businessId={business.id} resetKey={categoriesVersion} />
                             </Box>
                         </Paper>
                     )}

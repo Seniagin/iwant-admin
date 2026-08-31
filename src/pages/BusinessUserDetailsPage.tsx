@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Alert, CircularProgress, Chip, Button, Drawer } from '@mui/material';
+import { Box, Typography, Alert, CircularProgress, Chip, Button, Drawer, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useParams, useNavigate } from 'react-router-dom';
-import { IBusinessUser, IBusiness, getBusinessUser, addBusinessToUser, getUserBusinesses, deleteBusiness } from '../service/business.api.service';
+import { IBusinessUser, IBusiness, getBusinessUser, addBusinessToUser, getUserBusinesses, deleteBusiness, deleteBusinessUser } from '../service/business.api.service';
 import { BusinessCreateForm } from '../components/BusinessCreateForm';
 import { BusinessesList } from '../components/BusinessesList';
 import { BusinessUserEditDrawer } from '../components/BusinessUserEditDrawer';
@@ -18,6 +19,8 @@ export const BusinessUserDetailsPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [editUserOpen, setEditUserOpen] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const { userId } = useParams<{ userId: string }>();
     const navigate = useNavigate();
     const { showSuccess, showError } = useSnackbar();
@@ -85,6 +88,20 @@ export const BusinessUserDetailsPage: React.FC = () => {
         fetchUser();
         fetchUserBusinesses();
     }, [userId]);
+
+    const handleDeleteUser = async () => {
+        if (!userId) return;
+        try {
+            setIsDeleting(true);
+            await deleteBusinessUser(parseInt(userId, 10));
+            showSuccess('Business user deleted successfully');
+            navigate('/business-users');
+        } catch (err) {
+            showError('Failed to delete business user');
+            setIsDeleting(false);
+            setDeleteConfirmOpen(false);
+        }
+    };
 
     const handleBack = () => {
         navigate('/business-users');
@@ -184,6 +201,9 @@ export const BusinessUserDetailsPage: React.FC = () => {
                     <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={() => setIsDrawerOpen(true)}>
                         Add Business
                     </Button>
+                    <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteConfirmOpen(true)}>
+                        Delete user
+                    </Button>
                 </Box>
             </Box>
 
@@ -208,6 +228,21 @@ export const BusinessUserDetailsPage: React.FC = () => {
                 user={user}
                 onSaved={(u) => setUser(u)}
             />
+
+            <Dialog open={deleteConfirmOpen} onClose={() => !isDeleting && setDeleteConfirmOpen(false)}>
+                <DialogTitle>Delete business user?</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        This will permanently delete <strong>{user.email ?? `user #${user.id}`}</strong> along with all their businesses and offers. This action cannot be undone.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDeleteConfirmOpen(false)} disabled={isDeleting}>Cancel</Button>
+                    <Button onClick={handleDeleteUser} color="error" variant="contained" disabled={isDeleting}>
+                        {isDeleting ? 'Deleting...' : 'Delete'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };
