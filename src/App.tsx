@@ -21,6 +21,7 @@ import { RejectedMessagesPage } from './pages/RejectedMessagesPage';
 import { UncategorizedDemandsPage } from './pages/UncategorizedDemandsPage';
 import { BusinessesListPage } from './pages/BusinessesListPage';
 import { SnackbarProvider } from './contexts/SnackbarContext';
+import { QueryPlaygroundPage } from './pages/QueryPlaygroundPage';
 import { PlaygroundPage } from './pages/PlaygroundPage';
 import { FacetsPage } from './pages/FacetsPage';
 import { SearchLogsPage } from './pages/SearchLogsPage';
@@ -63,6 +64,7 @@ function App() {
               <Route path="/categories/:categoryId/businesses" element={<CategoryBusinessesPage />} />
               <Route path="/businesses" element={<BusinessesListPage />} />
               <Route path="/playground" element={<PlaygroundPage />} />
+              <Route path="/query-playground" element={<QueryPlaygroundPage />} />
               <Route path="/facets" element={<FacetsPage />} />
               <Route path="/search-logs" element={<SearchLogsPage />} />
             </Routes>

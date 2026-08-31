@@ -61,6 +61,12 @@ export const Navigation: React.FC = () => {
                     >
                         🎮 Playground
                     </Link>
+                    <Link
+                        to="/query-playground"
+                        className={`nav-link ${location.pathname === '/query-playground' ? 'active' : ''}`}
+                    >
+                        🧪 Query playground
+                    </Link>
                 </div>
             </div>
         </nav>
