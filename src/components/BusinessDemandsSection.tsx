@@ -22,7 +22,7 @@ const STATUS_META: Record<string, { color: string; label: string }> = {
 const TIMING_LABELS: Record<OfferTimingEnum, string> = {
     [OfferTimingEnum.TODAY]:          'Today',
     [OfferTimingEnum.THIS_WEEK]:      'This week',
-    [OfferTimingEnum.AFTER_THIS_WEEK]:'Later',
+    [OfferTimingEnum.DISCUSSIBLE]:'Discussible',
 };
 
 // ── helpers ──────────────────────────────────────────────────────────────────

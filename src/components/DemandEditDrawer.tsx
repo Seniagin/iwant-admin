@@ -9,8 +9,10 @@ import {
     IconButton,
     MenuItem,
     Select,
+    Tooltip,
     Typography,
 } from '@mui/material';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -73,6 +75,28 @@ export const DemandEditDrawer: React.FC<DemandEditDrawerProps> = ({
                             <Typography variant="body1" sx={{ mb: 2 }}>
                                 {demand.translation ?? '—'}
                             </Typography>
+                            {demand.timingPreference && demand.timingPreference.urgency !== 'flexible' && (
+                                <Box sx={{ mb: 2 }}>
+                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                        Timing
+                                    </Typography>
+                                    <Tooltip
+                                        title={[
+                                            demand.timingPreference.dateFrom && `Date: ${demand.timingPreference.dateFrom}${demand.timingPreference.dateTo ? ` – ${demand.timingPreference.dateTo}` : ''}`,
+                                            demand.timingPreference.timeFrom && `Time: ${demand.timingPreference.timeFrom}${demand.timingPreference.timeTo ? ` – ${demand.timingPreference.timeTo}` : ''}`,
+                                        ].filter(Boolean).join(' · ') || ''}
+                                        placement="top"
+                                    >
+                                        <Chip
+                                            icon={<AccessTimeIcon />}
+                                            label={demand.timingPreference.raw || demand.timingPreference.urgency.replace('_', ' ')}
+                                            size="small"
+                                            color={demand.timingPreference.urgency === 'asap' ? 'error' : demand.timingPreference.urgency === 'today' ? 'warning' : 'info'}
+                                            sx={{ cursor: 'default' }}
+                                        />
+                                    </Tooltip>
+                                </Box>
+                            )}
                             {demand.categoryMatchConfidence && (
                                 <>
                                     <Typography variant="subtitle2" color="text.secondary" gutterBottom>
