@@ -29,6 +29,8 @@ export interface IPlaygroundSearch {
     /** Preferences: these reordered the results, they never excluded anyone. */
     ranking: Record<string, string[]>;
     durationMs: number | null;
+    /** Businesses carrying an unresolved flag from any earlier run — repeat offenders. */
+    flaggedBusinessIds: string[];
     results: IPlaygroundResult[];
 }
 
@@ -59,4 +61,88 @@ export const runPlaygroundSearch = async (params: {
     });
     if (!response.ok) throw new Error('Search failed');
     return response.json();
+};
+
+/**
+ * Why a match looked wrong, in terms of the mechanism that would have to
+ * change. Free text says what a person saw; this says where to go and fix it,
+ * and makes the flags countable — nine of twelve being `wrong_trade` points at
+ * a lever, where nine paragraphs do not.
+ */
+export type FlagReason =
+    | 'wrong_trade'
+    | 'adjacent_service'
+    | 'too_generic'
+    | 'wrong_preference'
+    | 'too_far'
+    | 'bad_business_data'
+    | 'other';
+
+export const FLAG_REASONS: { value: FlagReason; label: string; hint: string }[] = [
+    { value: 'wrong_trade', label: 'Wrong trade', hint: 'A different profession entirely — road repair for a leaking pipe' },
+    { value: 'adjacent_service', label: 'Adjacent service', hint: 'Right trade, wrong job — blade sharpening for a mower that will not start' },
+    { value: 'too_generic', label: 'Too generic', hint: 'Matched on a phrase too broad to mean anything, like "repair services"' },
+    { value: 'wrong_preference', label: 'Wrong preference', hint: 'Contradicts a stated audience, urgency, or where the work happens' },
+    { value: 'too_far', label: 'Too far', hint: 'Plausible work, unusable distance' },
+    { value: 'bad_business_data', label: 'Bad business data', hint: 'The matcher was right; the business description or categories are wrong' },
+    { value: 'other', label: 'Other', hint: 'Something else — say what in the note' },
+];
+
+export interface IFlaggedMatch {
+    id: number;
+    searchLogId: number | null;
+    query: string;
+    aspects: string[];
+    demandFacets: Record<string, string[]>;
+    demandRanking: Record<string, string[]>;
+    businessId: string;
+    businessName: string;
+    rank: number;
+    score: number;
+    relevanceScore: number | null;
+    distanceKm: number | null;
+    matchedAspects: string[];
+    businessFacets: Record<string, string[] | string | null> | null;
+    reason: FlagReason;
+    note: string | null;
+    resolved: boolean;
+    createdAt: string;
+}
+
+export const flagMatch = async (
+    payload: Omit<IFlaggedMatch, 'id' | 'resolved' | 'createdAt'>,
+): Promise<IFlaggedMatch> => {
+    const response = await fetch(`${API_URL}/admin/playground/flags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error('Could not save the flag');
+    return response.json();
+};
+
+export const listFlags = async (
+    includeResolved = false,
+): Promise<{ items: IFlaggedMatch[]; byReason: { reason: FlagReason; count: number }[] }> => {
+    const response = await fetch(
+        `${API_URL}/admin/playground/flags?includeResolved=${includeResolved}`,
+    );
+    if (!response.ok) throw new Error('Could not load flags');
+    return response.json();
+};
+
+export const setFlagResolved = async (id: number, resolved: boolean): Promise<void> => {
+    const response = await fetch(`${API_URL}/admin/playground/flags/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolved }),
+    });
+    if (!response.ok) throw new Error('Could not update the flag');
+};
+
+export const deleteFlag = async (id: number): Promise<void> => {
+    const response = await fetch(`${API_URL}/admin/playground/flags/${id}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Could not remove the flag');
 };
