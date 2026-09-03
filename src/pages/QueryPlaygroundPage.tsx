@@ -30,7 +30,7 @@ import {
     runPlaygroundSearch,
     flagMatch,
     listFlags,
-    setFlagResolved,
+    updateFlag,
     deleteFlag,
     IFlaggedMatch,
     IPlaygroundSearch,
@@ -38,13 +38,7 @@ import {
     FlagReason,
     FLAG_REASONS,
 } from '../service/playground-search.api.service';
-import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    IconButton,
-} from '@mui/material';
+import { IconButton } from '@mui/material';
 
 /** Centre of the seeded catalogue, so a fresh page searches where the data is. */
 const DEFAULT_LAT = 39.4704;
@@ -104,10 +98,11 @@ export const QueryPlaygroundPage: React.FC = () => {
     // Business ids marked in this session or in an earlier run, so a row shows
     // as flagged the moment it is saved without waiting for another search.
     const [flagged, setFlagged] = useState<Set<string>>(new Set());
-    const [flagTarget, setFlagTarget] = useState<{ result: IPlaygroundResult; rank: number } | null>(null);
-    const [flagReason, setFlagReason] = useState<FlagReason>('wrong_trade');
-    const [flagNote, setFlagNote] = useState('');
-    const [savingFlag, setSavingFlag] = useState(false);
+    // Flags belonging to the search on screen, so the button can toggle its own
+    // mark. Kept apart from `flagged`, which is every business marked in any
+    // run: clicking must not delete a judgement made about a different query.
+    const [flagsHere, setFlagsHere] = useState<Map<string, number>>(new Map());
+    const [savingFlag, setSavingFlag] = useState<string | null>(null);
     const [flagList, setFlagList] = useState<IFlaggedMatch[]>([]);
     const [reasonCounts, setReasonCounts] = useState<{ reason: FlagReason; count: number }[]>([]);
     const { showSuccess, showError } = useSnackbar();
@@ -136,7 +131,8 @@ export const QueryPlaygroundPage: React.FC = () => {
                 radiusKm: Number(radiusKm),
             });
             setSearch(result);
-            setFlagged(new Set(result.flaggedBusinessIds ?? []));
+            setFlagsHere(new Map());
+            await refreshFlags(result.searchLogId);
         } catch (e: any) {
             setError(e.message ?? 'Search failed');
             setSearch(null);
@@ -145,12 +141,26 @@ export const QueryPlaygroundPage: React.FC = () => {
         }
     };
 
-    const refreshFlags = useCallback(async () => {
+    /**
+     * Reloads the flags. `logId` scopes which of them belong to the search on
+     * screen — rebuilt from the server rather than tracked locally, so a flag
+     * deleted from the list below stops showing as marked in the results above.
+     */
+    const refreshFlags = useCallback(async (logId?: number | null) => {
         try {
             const { items, byReason } = await listFlags();
             setFlagList(items);
             setReasonCounts(byReason);
             setFlagged(new Set(items.map((f) => f.businessId)));
+            if (logId != null) {
+                setFlagsHere(
+                    new Map(
+                        items
+                            .filter((f) => f.searchLogId === logId)
+                            .map((f) => [f.businessId, f.id]),
+                    ),
+                );
+            }
         } catch {
             // The list is a review aid; failing to load it must not break the page.
         }
@@ -158,36 +168,42 @@ export const QueryPlaygroundPage: React.FC = () => {
 
     useEffect(() => { void refreshFlags(); }, [refreshFlags]);
 
-    const saveFlag = async () => {
-        if (!search || !flagTarget) return;
+    /**
+     * One click marks, another unmarks. No reason is asked for here: marking
+     * happens while reading a list, and stopping to classify each row costs
+     * more attention than the classification is worth at that moment. The
+     * reason is set later, below, when the flags are read together.
+     */
+    const toggleFlag = async (result: IPlaygroundResult, rank: number) => {
+        if (!search) return;
         try {
-            setSavingFlag(true);
-            const { result, rank } = flagTarget;
-            await flagMatch({
-                searchLogId: search.searchLogId,
-                query: search.query,
-                aspects: search.aspects,
-                demandFacets: search.filters,
-                demandRanking: search.ranking,
-                businessId: result.businessId,
-                businessName: result.name,
-                rank,
-                score: result.score,
-                relevanceScore: result.relevanceScore,
-                distanceKm: result.distanceKm,
-                matchedAspects: result.matchedAspects,
-                businessFacets: result.facets,
-                reason: flagReason,
-                note: flagNote.trim() || null,
-            });
-            setFlagTarget(null);
-            setFlagNote('');
-            showSuccess('Marked');
-            await refreshFlags();
+            setSavingFlag(result.businessId);
+            const existingId = flagsHere.get(result.businessId);
+            if (existingId !== undefined) {
+                await deleteFlag(existingId);
+            } else {
+                const saved = await flagMatch({
+                    searchLogId: search.searchLogId,
+                    query: search.query,
+                    aspects: search.aspects,
+                    demandFacets: search.filters,
+                    demandRanking: search.ranking,
+                    businessId: result.businessId,
+                    businessName: result.name,
+                    rank,
+                    score: result.score,
+                    relevanceScore: result.relevanceScore,
+                    distanceKm: result.distanceKm,
+                    matchedAspects: result.matchedAspects,
+                    businessFacets: result.facets,
+                });
+                setFlagsHere((prev) => new Map(prev).set(result.businessId, saved.id));
+            }
+            await refreshFlags(search.searchLogId);
         } catch (e: any) {
-            showError(e.message ?? 'Could not save the flag');
+            showError(e.message ?? 'Could not save the mark');
         } finally {
-            setSavingFlag(false);
+            setSavingFlag(null);
         }
     };
 
@@ -320,31 +336,36 @@ export const QueryPlaygroundPage: React.FC = () => {
                                 {search.results.map((r, i) => {
                                     const adjustment = r.score - r.relevanceScore;
                                     const moved = Math.abs(adjustment) >= 0.0005;
-                                    const isFlagged = flagged.has(r.businessId);
+                                    const markedHere = flagsHere.has(r.businessId);
+                                    // Marked against some other query. Worth showing — a repeat
+                                    // offender is a pattern — but visually distinct, because it
+                                    // says nothing about whether it belongs in *this* result set.
+                                    const markedElsewhere = !markedHere && flagged.has(r.businessId);
                                     return (
                                         <TableRow
                                             key={`${r.businessId}-${i}`}
-                                            sx={isFlagged ? { bgcolor: 'action.hover' } : undefined}
+                                            sx={markedHere ? { bgcolor: 'action.hover' } : undefined}
                                         >
                                             <TableCell>
                                                 <Tooltip
                                                     title={
-                                                        isFlagged
-                                                            ? 'This business was marked in an earlier result set — which does not by itself mean it is wrong here. Click to mark it for this query too.'
-                                                            : 'Mark as not belonging in this result set'
+                                                        markedHere
+                                                            ? 'Marked. Click to unmark.'
+                                                            : markedElsewhere
+                                                              ? 'Marked in an earlier result set, which does not by itself make it wrong here. Click to mark it for this query too.'
+                                                              : 'Mark as not belonging in this result set'
                                                     }
                                                 >
-                                                    <IconButton
-                                                        size="small"
-                                                        color={isFlagged ? 'error' : 'default'}
-                                                        onClick={() => {
-                                                            setFlagTarget({ result: r, rank: i + 1 });
-                                                            setFlagReason('wrong_trade');
-                                                            setFlagNote('');
-                                                        }}
-                                                    >
-                                                        {isFlagged ? <FlagIcon fontSize="small" /> : <OutlinedFlagIcon fontSize="small" />}
-                                                    </IconButton>
+                                                    <span>
+                                                        <IconButton
+                                                            size="small"
+                                                            disabled={savingFlag === r.businessId}
+                                                            color={markedHere ? 'error' : markedElsewhere ? 'warning' : 'default'}
+                                                            onClick={() => void toggleFlag(r, i + 1)}
+                                                        >
+                                                            {markedHere ? <FlagIcon fontSize="small" /> : <OutlinedFlagIcon fontSize="small" />}
+                                                        </IconButton>
+                                                    </span>
                                                 </Tooltip>
                                             </TableCell>
                                             <TableCell>
@@ -421,15 +442,18 @@ export const QueryPlaygroundPage: React.FC = () => {
                         </Typography>
                         {reasonCounts.map((c) => (
                             <Chip
-                                key={c.reason} size="small" variant="outlined"
-                                label={`${FLAG_REASONS.find((r) => r.value === c.reason)?.label ?? c.reason}: ${c.count}`}
+                                key={c.reason ?? 'unclassified'} size="small" variant="outlined"
+                                color={c.reason ? 'default' : 'warning'}
+                                label={`${c.reason ? (FLAG_REASONS.find((r) => r.value === c.reason)?.label ?? c.reason) : 'unclassified'}: ${c.count}`}
                             />
                         ))}
                     </Box>
                     <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
                         Each row keeps the whole match — the query, what it was reduced to, and how
                         the business looked at the time — so it stays readable after the search log
-                        is cleared. Resolve one once its cause is fixed, to keep this a to-do list.
+                        is cleared. Classify them here, once the pattern across several is visible;
+                        marking a result up above asks for nothing. Resolve one when its cause is
+                        fixed, to keep this a to-do list.
                     </Typography>
                     <Table size="small">
                         <TableHead>
@@ -460,8 +484,21 @@ export const QueryPlaygroundPage: React.FC = () => {
                                         </Typography>
                                     </TableCell>
                                     <TableCell>
-                                        <Chip size="small" color="error" variant="outlined"
-                                            label={FLAG_REASONS.find((r) => r.value === f.reason)?.label ?? f.reason} />
+                                        <TextField
+                                            select size="small" variant="standard" fullWidth
+                                            value={f.reason ?? ''}
+                                            onChange={async (e) => {
+                                                await updateFlag(f.id, {
+                                                    reason: (e.target.value || null) as FlagReason | null,
+                                                });
+                                                await refreshFlags(search?.searchLogId);
+                                            }}
+                                        >
+                                            <MenuItem value=""><em>unclassified</em></MenuItem>
+                                            {FLAG_REASONS.map((r) => (
+                                                <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>
+                                            ))}
+                                        </TextField>
                                     </TableCell>
                                     <TableCell sx={{ maxWidth: 200 }}>
                                         <Typography variant="caption">{f.matchedAspects.join(', ') || '—'}</Typography>
@@ -474,12 +511,12 @@ export const QueryPlaygroundPage: React.FC = () => {
                                             {f.searchLogId ? `#${f.searchLogId}` : '—'}
                                         </Typography>
                                         <Button size="small" onClick={async () => {
-                                            await setFlagResolved(f.id, true);
-                                            await refreshFlags();
+                                            await updateFlag(f.id, { resolved: true });
+                                            await refreshFlags(search?.searchLogId);
                                         }}>Resolve</Button>
                                         <Button size="small" color="error" onClick={async () => {
                                             await deleteFlag(f.id);
-                                            await refreshFlags();
+                                            await refreshFlags(search?.searchLogId);
                                         }}>Delete</Button>
                                     </TableCell>
                                 </TableRow>
@@ -489,47 +526,6 @@ export const QueryPlaygroundPage: React.FC = () => {
                 </Paper>
             )}
 
-            <Dialog open={flagTarget !== null} onClose={() => setFlagTarget(null)} fullWidth maxWidth="sm">
-                <DialogTitle>Mark as dubious</DialogTitle>
-                <DialogContent>
-                    {flagTarget && (
-                        <>
-                            <Typography variant="body2" gutterBottom>
-                                <strong>{flagTarget.result.name}</strong> at rank {flagTarget.rank},
-                                score {flagTarget.result.score.toFixed(3)}
-                                {flagTarget.result.matchedAspects.length > 0 && (
-                                    <> — matched on {flagTarget.result.matchedAspects.join(', ')}</>
-                                )}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
-                                The whole result is copied into the record, so it stays readable
-                                after the search log is cleared.
-                            </Typography>
-                            <TextField
-                                select fullWidth size="small" label="Reason" value={flagReason}
-                                onChange={(e) => setFlagReason(e.target.value as FlagReason)}
-                                helperText={FLAG_REASONS.find((r) => r.value === flagReason)?.hint}
-                            >
-                                {FLAG_REASONS.map((r) => (
-                                    <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>
-                                ))}
-                            </TextField>
-                            <TextField
-                                fullWidth multiline minRows={2} sx={{ mt: 2 }}
-                                label="Note (optional)" value={flagNote}
-                                placeholder="What made it wrong?"
-                                onChange={(e) => setFlagNote(e.target.value)}
-                            />
-                        </>
-                    )}
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setFlagTarget(null)}>Cancel</Button>
-                    <Button variant="contained" onClick={saveFlag} disabled={savingFlag}>
-                        {savingFlag ? 'Saving…' : 'Mark'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
         </Box>
     );
 };

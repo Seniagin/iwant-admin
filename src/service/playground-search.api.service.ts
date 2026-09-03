@@ -69,6 +69,7 @@ export const runPlaygroundSearch = async (params: {
  * and makes the flags countable — nine of twelve being `wrong_trade` points at
  * a lever, where nine paragraphs do not.
  */
+/** Null until someone classifies it — marking is one click and carries no reason. */
 export type FlagReason =
     | 'wrong_trade'
     | 'adjacent_service'
@@ -103,14 +104,14 @@ export interface IFlaggedMatch {
     distanceKm: number | null;
     matchedAspects: string[];
     businessFacets: Record<string, string[] | string | null> | null;
-    reason: FlagReason;
+    reason: FlagReason | null;
     note: string | null;
     resolved: boolean;
     createdAt: string;
 }
 
 export const flagMatch = async (
-    payload: Omit<IFlaggedMatch, 'id' | 'resolved' | 'createdAt'>,
+    payload: Omit<IFlaggedMatch, 'id' | 'resolved' | 'createdAt' | 'reason' | 'note'>,
 ): Promise<IFlaggedMatch> => {
     const response = await fetch(`${API_URL}/admin/playground/flags`, {
         method: 'POST',
@@ -131,11 +132,15 @@ export const listFlags = async (
     return response.json();
 };
 
-export const setFlagResolved = async (id: number, resolved: boolean): Promise<void> => {
+/** Only the supplied fields change, so classifying does not un-resolve and vice versa. */
+export const updateFlag = async (
+    id: number,
+    changes: { resolved?: boolean; reason?: FlagReason | null; note?: string | null },
+): Promise<void> => {
     const response = await fetch(`${API_URL}/admin/playground/flags/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resolved }),
+        body: JSON.stringify(changes),
     });
     if (!response.ok) throw new Error('Could not update the flag');
 };
