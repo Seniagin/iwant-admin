@@ -151,3 +151,23 @@ export const deleteFlag = async (id: number): Promise<void> => {
     });
     if (!response.ok) throw new Error('Could not remove the flag');
 };
+
+/**
+ * Reads one recorded search through the Claude Code CLI on the machine running
+ * the backend. Slow by nature — a minute is normal — so callers should show
+ * progress rather than a spinner that looks stuck.
+ */
+export const analyseSearch = async (
+    searchLogId: number,
+): Promise<{ analysis: string; durationMs: number }> => {
+    const response = await fetch(`${API_URL}/admin/playground/analyse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ searchLogId }),
+    });
+    if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message ?? 'Analysis failed');
+    }
+    return response.json();
+};

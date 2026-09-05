@@ -24,6 +24,7 @@ import FlagIcon from '@mui/icons-material/Flag';
 import OutlinedFlagIcon from '@mui/icons-material/OutlinedFlag';
 import SearchIcon from '@mui/icons-material/Search';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import PsychologyIcon from '@mui/icons-material/Psychology';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import {
     generatePlaygroundQuery,
@@ -32,6 +33,7 @@ import {
     listFlags,
     updateFlag,
     deleteFlag,
+    analyseSearch,
     IFlaggedMatch,
     IPlaygroundSearch,
     IPlaygroundResult,
@@ -103,6 +105,8 @@ export const QueryPlaygroundPage: React.FC = () => {
     // run: clicking must not delete a judgement made about a different query.
     const [flagsHere, setFlagsHere] = useState<Map<string, number>>(new Map());
     const [savingFlag, setSavingFlag] = useState<string | null>(null);
+    const [analysis, setAnalysis] = useState<string | null>(null);
+    const [analysing, setAnalysing] = useState(false);
     const [flagList, setFlagList] = useState<IFlaggedMatch[]>([]);
     const [reasonCounts, setReasonCounts] = useState<{ reason: FlagReason; count: number }[]>([]);
     const { showSuccess, showError } = useSnackbar();
@@ -131,6 +135,7 @@ export const QueryPlaygroundPage: React.FC = () => {
                 radiusKm: Number(radiusKm),
             });
             setSearch(result);
+            setAnalysis(null);
             setFlagsHere(new Map());
             await refreshFlags(result.searchLogId);
         } catch (e: any) {
@@ -204,6 +209,20 @@ export const QueryPlaygroundPage: React.FC = () => {
             showError(e.message ?? 'Could not save the mark');
         } finally {
             setSavingFlag(null);
+        }
+    };
+
+    const runAnalysis = async () => {
+        if (!search?.searchLogId) return;
+        try {
+            setAnalysing(true);
+            setAnalysis(null);
+            const { analysis: text } = await analyseSearch(search.searchLogId);
+            setAnalysis(text);
+        } catch (e: any) {
+            showError(e.message ?? 'Analysis failed');
+        } finally {
+            setAnalysing(false);
         }
     };
 
@@ -289,6 +308,19 @@ export const QueryPlaygroundPage: React.FC = () => {
                         <Button size="small" startIcon={<ContentCopyIcon />} onClick={copyTranscript}>
                             Copy transcript
                         </Button>
+                        <Tooltip title="Reads this result set through the Claude Code CLI on the backend machine and says which mechanism put each questionable result where it is. Takes about a minute.">
+                            <span>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    disabled={analysing || !search.searchLogId}
+                                    startIcon={analysing ? <CircularProgress size={16} /> : <PsychologyIcon />}
+                                    onClick={runAnalysis}
+                                >
+                                    {analysing ? 'Analysing…' : 'Analyse'}
+                                </Button>
+                            </span>
+                        </Tooltip>
                     </Box>
 
                     <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 1, alignItems: 'center', mb: 2 }}>
@@ -311,6 +343,21 @@ export const QueryPlaygroundPage: React.FC = () => {
                         </Tooltip>
                         {chips(search.ranking, 'warning')}
                     </Box>
+
+                    {analysis && (
+                        <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: 'action.hover' }}>
+                            <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                                Analysis
+                            </Typography>
+                            <Typography
+                                variant="body2"
+                                component="pre"
+                                sx={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', m: 0 }}
+                            >
+                                {analysis}
+                            </Typography>
+                        </Paper>
+                    )}
 
                     <Divider sx={{ mb: 1 }} />
 
