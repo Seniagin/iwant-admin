@@ -29,7 +29,7 @@ export interface IPlaygroundSearch {
     /** Preferences: these reordered the results, they never excluded anyone. */
     ranking: Record<string, string[]>;
     durationMs: number | null;
-    /** Businesses carrying an unresolved flag from any earlier run — repeat offenders. */
+    /** Businesses judged wrong in any earlier run — repeat offenders. */
     flaggedBusinessIds: string[];
     results: IPlaygroundResult[];
 }
@@ -89,6 +89,13 @@ export const FLAG_REASONS: { value: FlagReason; label: string; hint: string }[] 
     { value: 'other', label: 'Other', hint: 'Something else — say what in the note' },
 ];
 
+/**
+ * Which way a result was judged. Mark whichever side is fewer clicks: on a
+ * list where most results are wrong, mark the good ones. Anything unmarked
+ * stays unknown and is not a positive label.
+ */
+export type MatchVerdict = 'good' | 'wrong';
+
 export interface IFlaggedMatch {
     id: number;
     searchLogId: number | null;
@@ -104,6 +111,7 @@ export interface IFlaggedMatch {
     distanceKm: number | null;
     matchedAspects: string[];
     businessFacets: Record<string, string[] | string | null> | null;
+    verdict: MatchVerdict;
     reason: FlagReason | null;
     note: string | null;
     resolved: boolean;
@@ -135,7 +143,12 @@ export const listFlags = async (
 /** Only the supplied fields change, so classifying does not un-resolve and vice versa. */
 export const updateFlag = async (
     id: number,
-    changes: { resolved?: boolean; reason?: FlagReason | null; note?: string | null },
+    changes: {
+        resolved?: boolean;
+        reason?: FlagReason | null;
+        note?: string | null;
+        verdict?: MatchVerdict;
+    },
 ): Promise<void> => {
     const response = await fetch(`${API_URL}/admin/playground/flags/${id}`, {
         method: 'PATCH',

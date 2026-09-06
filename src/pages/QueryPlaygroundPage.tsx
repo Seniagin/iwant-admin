@@ -22,6 +22,8 @@ import { Link as RouterLink } from 'react-router-dom';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import FlagIcon from '@mui/icons-material/Flag';
 import OutlinedFlagIcon from '@mui/icons-material/OutlinedFlag';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import SearchIcon from '@mui/icons-material/Search';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import PsychologyIcon from '@mui/icons-material/Psychology';
@@ -38,6 +40,7 @@ import {
     IPlaygroundSearch,
     IPlaygroundResult,
     FlagReason,
+    MatchVerdict,
     FLAG_REASONS,
 } from '../service/playground-search.api.service';
 import { IconButton } from '@mui/material';
@@ -103,7 +106,7 @@ export const QueryPlaygroundPage: React.FC = () => {
     // Flags belonging to the search on screen, so the button can toggle its own
     // mark. Kept apart from `flagged`, which is every business marked in any
     // run: clicking must not delete a judgement made about a different query.
-    const [flagsHere, setFlagsHere] = useState<Map<string, number>>(new Map());
+    const [flagsHere, setFlagsHere] = useState<Map<string, { id: number; verdict: MatchVerdict }>>(new Map());
     const [savingFlag, setSavingFlag] = useState<string | null>(null);
     const [analysis, setAnalysis] = useState<string | null>(null);
     const [analysing, setAnalysing] = useState(false);
@@ -162,7 +165,7 @@ export const QueryPlaygroundPage: React.FC = () => {
                     new Map(
                         items
                             .filter((f) => f.searchLogId === logId)
-                            .map((f) => [f.businessId, f.id]),
+                            .map((f) => [f.businessId, { id: f.id, verdict: f.verdict }]),
                     ),
                 );
             }
@@ -174,20 +177,30 @@ export const QueryPlaygroundPage: React.FC = () => {
     useEffect(() => { void refreshFlags(); }, [refreshFlags]);
 
     /**
-     * One click marks, another unmarks. No reason is asked for here: marking
-     * happens while reading a list, and stopping to classify each row costs
-     * more attention than the classification is worth at that moment. The
-     * reason is set later, below, when the flags are read together.
+     * One click marks, clicking the same side again unmarks, clicking the
+     * other side switches. Mark whichever is fewer clicks — on fifteen results
+     * where twelve are wrong, mark the three good ones.
+     *
+     * No reason is asked for here: marking happens while reading a list, and
+     * stopping to classify each row costs more attention than the
+     * classification is worth at that moment. The reason is set later, below.
      */
-    const toggleFlag = async (result: IPlaygroundResult, rank: number) => {
+    const judge = async (
+        result: IPlaygroundResult,
+        rank: number,
+        verdict: MatchVerdict,
+    ) => {
         if (!search) return;
         try {
             setSavingFlag(result.businessId);
-            const existingId = flagsHere.get(result.businessId);
-            if (existingId !== undefined) {
-                await deleteFlag(existingId);
+            const existing = flagsHere.get(result.businessId);
+            if (existing && existing.verdict === verdict) {
+                await deleteFlag(existing.id);
+            } else if (existing) {
+                await updateFlag(existing.id, { verdict });
             } else {
                 const saved = await flagMatch({
+                    verdict,
                     searchLogId: search.searchLogId,
                     query: search.query,
                     aspects: search.aspects,
@@ -202,7 +215,9 @@ export const QueryPlaygroundPage: React.FC = () => {
                     matchedAspects: result.matchedAspects,
                     businessFacets: result.facets,
                 });
-                setFlagsHere((prev) => new Map(prev).set(result.businessId, saved.id));
+                setFlagsHere((prev) =>
+                    new Map(prev).set(result.businessId, { id: saved.id, verdict }),
+                );
             }
             await refreshFlags(search.searchLogId);
         } catch (e: any) {
@@ -370,7 +385,7 @@ export const QueryPlaygroundPage: React.FC = () => {
                         <Table size="small">
                             <TableHead>
                                 <TableRow>
-                                    <TableCell width={44} />
+                                    <TableCell width={86} />
                                     <TableCell width={90}>Score</TableCell>
                                     <TableCell width={70}>Dist</TableCell>
                                     <TableCell>Business</TableCell>
@@ -383,24 +398,38 @@ export const QueryPlaygroundPage: React.FC = () => {
                                 {search.results.map((r, i) => {
                                     const adjustment = r.score - r.relevanceScore;
                                     const moved = Math.abs(adjustment) >= 0.0005;
-                                    const markedHere = flagsHere.has(r.businessId);
+                                    const here = flagsHere.get(r.businessId);
+                                    const markedHere = here?.verdict === 'wrong';
+                                    const goodHere = here?.verdict === 'good';
                                     // Marked against some other query. Worth showing — a repeat
                                     // offender is a pattern — but visually distinct, because it
                                     // says nothing about whether it belongs in *this* result set.
-                                    const markedElsewhere = !markedHere && flagged.has(r.businessId);
+                                    const markedElsewhere = !here && flagged.has(r.businessId);
                                     return (
                                         <TableRow
                                             key={`${r.businessId}-${i}`}
-                                            sx={markedHere ? { bgcolor: 'action.hover' } : undefined}
+                                            sx={here ? { bgcolor: 'action.hover' } : undefined}
                                         >
-                                            <TableCell>
+                                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                                <Tooltip title={goodHere ? 'Judged a good match. Click to clear.' : 'Judge this a good match'}>
+                                                    <span>
+                                                        <IconButton
+                                                            size="small"
+                                                            disabled={savingFlag === r.businessId}
+                                                            color={goodHere ? 'success' : 'default'}
+                                                            onClick={() => void judge(r, i + 1, 'good')}
+                                                        >
+                                                            {goodHere ? <CheckCircleIcon fontSize="small" /> : <CheckCircleOutlineIcon fontSize="small" />}
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
                                                 <Tooltip
                                                     title={
                                                         markedHere
-                                                            ? 'Marked. Click to unmark.'
+                                                            ? 'Judged wrong. Click to clear.'
                                                             : markedElsewhere
-                                                              ? 'Marked in an earlier result set, which does not by itself make it wrong here. Click to mark it for this query too.'
-                                                              : 'Mark as not belonging in this result set'
+                                                              ? 'Judged wrong in an earlier result set, which does not by itself make it wrong here.'
+                                                              : 'Judge this one wrong'
                                                     }
                                                 >
                                                     <span>
@@ -408,7 +437,7 @@ export const QueryPlaygroundPage: React.FC = () => {
                                                             size="small"
                                                             disabled={savingFlag === r.businessId}
                                                             color={markedHere ? 'error' : markedElsewhere ? 'warning' : 'default'}
-                                                            onClick={() => void toggleFlag(r, i + 1)}
+                                                            onClick={() => void judge(r, i + 1, 'wrong')}
                                                         >
                                                             {markedHere ? <FlagIcon fontSize="small" /> : <OutlinedFlagIcon fontSize="small" />}
                                                         </IconButton>
@@ -485,7 +514,7 @@ export const QueryPlaygroundPage: React.FC = () => {
                 <Paper sx={{ p: 2, mt: 3 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
                         <Typography variant="subtitle1" fontWeight={700}>
-                            Marked as dubious ({flagList.length})
+                            Judged ({flagList.length})
                         </Typography>
                         {reasonCounts.map((c) => (
                             <Chip
@@ -498,15 +527,17 @@ export const QueryPlaygroundPage: React.FC = () => {
                     <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
                         Each row keeps the whole match — the query, what it was reduced to, and how
                         the business looked at the time — so it stays readable after the search log
-                        is cleared. Classify them here, once the pattern across several is visible;
-                        marking a result up above asks for nothing. Resolve one when its cause is
-                        fixed, to keep this a to-do list.
+                        is cleared. Mark whichever side is fewer clicks: on fifteen results where
+                        twelve are wrong, mark the three good ones. Anything left unmarked stays
+                        unknown, and is not counted as either. Classify the wrong ones here, once
+                        the pattern across several is visible.
                     </Typography>
                     <Table size="small">
                         <TableHead>
                             <TableRow>
                                 <TableCell>Query</TableCell>
                                 <TableCell>Business</TableCell>
+                                <TableCell width={70}>Verdict</TableCell>
                                 <TableCell width={110}>Reason</TableCell>
                                 <TableCell>Matched on</TableCell>
                                 <TableCell>Note</TableCell>
@@ -531,6 +562,17 @@ export const QueryPlaygroundPage: React.FC = () => {
                                         </Typography>
                                     </TableCell>
                                     <TableCell>
+                                        <Chip
+                                            size="small"
+                                            color={f.verdict === 'good' ? 'success' : 'error'}
+                                            variant="outlined"
+                                            label={f.verdict === 'good' ? 'good' : 'wrong'}
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        {f.verdict === 'good' ? (
+                                            <Typography variant="caption" color="text.secondary">—</Typography>
+                                        ) : (
                                         <TextField
                                             select size="small" variant="standard" fullWidth
                                             value={f.reason ?? ''}
@@ -546,6 +588,7 @@ export const QueryPlaygroundPage: React.FC = () => {
                                                 <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>
                                             ))}
                                         </TextField>
+                                        )}
                                     </TableCell>
                                     <TableCell sx={{ maxWidth: 200 }}>
                                         <Typography variant="caption">{f.matchedAspects.join(', ') || '—'}</Typography>
