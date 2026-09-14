@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Alert,
     Box,
@@ -87,6 +87,256 @@ function asTranscript(search: IPlaygroundSearch): string {
     ];
     return lines.join('\n');
 }
+
+/**
+ * The result rows, split out and memoized so typing in the query box above —
+ * a sibling's state, re-rendering the parent on every keystroke — does not
+ * re-diff up to 80 rows of tooltips, icon buttons and chips each time. This
+ * table only actually changes when a search runs or a mark is toggled, both
+ * of which pass new props rather than mutating in place.
+ */
+const ResultsTable: React.FC<{
+    results: IPlaygroundResult[];
+    flagsHere: Map<string, { id: number; verdict: MatchVerdict }>;
+    flagged: Set<string>;
+    savingFlag: string | null;
+    onJudge: (result: IPlaygroundResult, rank: number, verdict: MatchVerdict) => void;
+}> = React.memo(({ results, flagsHere, flagged, savingFlag, onJudge }) => (
+    <Table size="small">
+        <TableHead>
+            <TableRow>
+                <TableCell width={86} />
+                <TableCell width={90}>Score</TableCell>
+                <TableCell width={70}>Dist</TableCell>
+                <TableCell>Business</TableCell>
+                <TableCell>Description</TableCell>
+                <TableCell>Matched aspects</TableCell>
+                <TableCell>Business parameters</TableCell>
+            </TableRow>
+        </TableHead>
+        <TableBody>
+            {results.map((r, i) => {
+                const adjustment = r.score - r.relevanceScore;
+                const moved = Math.abs(adjustment) >= 0.0005;
+                const here = flagsHere.get(r.businessId);
+                const markedHere = here?.verdict === 'wrong';
+                const goodHere = here?.verdict === 'good';
+                // Marked against some other query. Worth showing — a repeat
+                // offender is a pattern — but visually distinct, because it
+                // says nothing about whether it belongs in *this* result set.
+                const markedElsewhere = !here && flagged.has(r.businessId);
+                return (
+                    <TableRow
+                        key={`${r.businessId}-${i}`}
+                        sx={here ? { bgcolor: 'action.hover' } : undefined}
+                    >
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                            <Tooltip title={goodHere ? 'Judged a good match. Click to clear.' : 'Judge this a good match'}>
+                                <span>
+                                    <IconButton
+                                        size="small"
+                                        disabled={savingFlag === r.businessId}
+                                        color={goodHere ? 'success' : 'default'}
+                                        onClick={() => onJudge(r, i + 1, 'good')}
+                                    >
+                                        {goodHere ? <CheckCircleIcon fontSize="small" /> : <CheckCircleOutlineIcon fontSize="small" />}
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
+                            <Tooltip
+                                title={
+                                    markedHere
+                                        ? 'Judged wrong. Click to clear.'
+                                        : markedElsewhere
+                                          ? 'Judged wrong in an earlier result set, which does not by itself make it wrong here.'
+                                          : 'Judge this one wrong'
+                                }
+                            >
+                                <span>
+                                    <IconButton
+                                        size="small"
+                                        disabled={savingFlag === r.businessId}
+                                        color={markedHere ? 'error' : markedElsewhere ? 'warning' : 'default'}
+                                        onClick={() => onJudge(r, i + 1, 'wrong')}
+                                    >
+                                        {markedHere ? <FlagIcon fontSize="small" /> : <OutlinedFlagIcon fontSize="small" />}
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
+                        </TableCell>
+                        <TableCell>
+                            <Typography variant="body2" fontWeight={700}>
+                                {r.score.toFixed(3)}
+                            </Typography>
+                            {moved && (
+                                <Typography
+                                    variant="caption" display="block"
+                                    color={adjustment > 0 ? 'success.main' : 'error.main'}
+                                >
+                                    {adjustment > 0 ? '+' : ''}{adjustment.toFixed(3)} pref
+                                </Typography>
+                            )}
+                        </TableCell>
+                        <TableCell>
+                            <Typography variant="caption">{r.distanceKm} km</Typography>
+                        </TableCell>
+                        <TableCell>
+                            <Link
+                                component={RouterLink}
+                                to={`/businesses/${r.businessId}`}
+                                variant="body2" underline="hover"
+                            >
+                                {r.name}
+                            </Link>
+                        </TableCell>
+                        <TableCell sx={{ maxWidth: 300 }}>
+                            <Tooltip title={r.description ?? ''}>
+                                <Typography
+                                    variant="caption" color="text.secondary"
+                                    sx={{
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 3,
+                                        WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden',
+                                    }}
+                                >
+                                    {r.description ?? '—'}
+                                </Typography>
+                            </Tooltip>
+                        </TableCell>
+                        <TableCell>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {r.matchedAspects.map((a) => (
+                                    <Chip key={a} size="small" label={a} />
+                                ))}
+                            </Box>
+                        </TableCell>
+                        <TableCell sx={{ maxWidth: 300 }}>
+                            {chips(
+                                Object.fromEntries(
+                                    Object.entries(r.facets ?? {})
+                                        .filter(([, v]) => v != null && (!Array.isArray(v) || v.length))
+                                        .map(([k, v]) => [k, Array.isArray(v) ? v : [String(v)]]),
+                                ),
+                                'default',
+                            )}
+                        </TableCell>
+                    </TableRow>
+                );
+            })}
+        </TableBody>
+    </Table>
+));
+
+/**
+ * The judged-history table, split out and memoized for the same reason as
+ * `ResultsTable` — and more urgently here: this list holds every unresolved
+ * flag across every query ever run in this playground (up to 200 of them),
+ * each row mounting a MUI `Select`, which is the single heaviest widget on
+ * the page. Left inline, every keystroke in the query box re-rendered and
+ * re-diffed all 200 of them — the actual source of the multi-hundred-
+ * millisecond input lag, not the search itself.
+ */
+const JudgedTable: React.FC<{
+    flagList: IFlaggedMatch[];
+    reasonCounts: { reason: FlagReason; count: number }[];
+    onSetReason: (id: number, reason: FlagReason | null) => void;
+    onResolve: (id: number) => void;
+    onDelete: (id: number) => void;
+}> = React.memo(({ flagList, reasonCounts, onSetReason, onResolve, onDelete }) => (
+    <Paper sx={{ p: 2, mt: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+            <Typography variant="subtitle1" fontWeight={700}>
+                Judged ({flagList.length})
+            </Typography>
+            {reasonCounts.map((c) => (
+                <Chip
+                    key={c.reason ?? 'unclassified'} size="small" variant="outlined"
+                    color={c.reason ? 'default' : 'warning'}
+                    label={`${c.reason ? (FLAG_REASONS.find((r) => r.value === c.reason)?.label ?? c.reason) : 'unclassified'}: ${c.count}`}
+                />
+            ))}
+        </Box>
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+            Each row keeps the whole match — the query, what it was reduced to, and how
+            the business looked at the time — so it stays readable after the search log
+            is cleared. Mark whichever side is fewer clicks: on fifteen results where
+            twelve are wrong, mark the three good ones. Anything left unmarked stays
+            unknown, and is not counted as either. Classify the wrong ones here, once
+            the pattern across several is visible.
+        </Typography>
+        <Table size="small">
+            <TableHead>
+                <TableRow>
+                    <TableCell>Query</TableCell>
+                    <TableCell>Business</TableCell>
+                    <TableCell width={70}>Verdict</TableCell>
+                    <TableCell width={110}>Reason</TableCell>
+                    <TableCell>Matched on</TableCell>
+                    <TableCell>Note</TableCell>
+                    <TableCell width={120} align="right">Log</TableCell>
+                </TableRow>
+            </TableHead>
+            <TableBody>
+                {flagList.map((f) => (
+                    <TableRow key={f.id}>
+                        <TableCell sx={{ maxWidth: 220 }}>
+                            <Typography variant="caption">{f.query}</Typography>
+                        </TableCell>
+                        <TableCell>
+                            <Link
+                                component={RouterLink} to={`/businesses/${f.businessId}`}
+                                variant="body2" underline="hover"
+                            >
+                                {f.businessName}
+                            </Link>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                                rank {f.rank} · {f.score.toFixed(3)}
+                            </Typography>
+                        </TableCell>
+                        <TableCell>
+                            <Chip
+                                size="small"
+                                color={f.verdict === 'good' ? 'success' : 'error'}
+                                variant="outlined"
+                                label={f.verdict === 'good' ? 'good' : 'wrong'}
+                            />
+                        </TableCell>
+                        <TableCell>
+                            {f.verdict === 'good' ? (
+                                <Typography variant="caption" color="text.secondary">—</Typography>
+                            ) : (
+                            <TextField
+                                select size="small" variant="standard" fullWidth
+                                value={f.reason ?? ''}
+                                onChange={(e) => onSetReason(f.id, (e.target.value || null) as FlagReason | null)}
+                            >
+                                <MenuItem value=""><em>unclassified</em></MenuItem>
+                                {FLAG_REASONS.map((r) => (
+                                    <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>
+                                ))}
+                            </TextField>
+                            )}
+                        </TableCell>
+                        <TableCell sx={{ maxWidth: 200 }}>
+                            <Typography variant="caption">{f.matchedAspects.join(', ') || '—'}</Typography>
+                        </TableCell>
+                        <TableCell sx={{ maxWidth: 200 }}>
+                            <Typography variant="caption" color="text.secondary">{f.note ?? '—'}</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                            <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                                {f.searchLogId ? `#${f.searchLogId}` : '—'}
+                            </Typography>
+                            <Button size="small" onClick={() => onResolve(f.id)}>Resolve</Button>
+                            <Button size="small" color="error" onClick={() => onDelete(f.id)}>Delete</Button>
+                        </TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+    </Paper>
+));
 
 export const QueryPlaygroundPage: React.FC = () => {
     const [language, setLanguage] = useState<'ru' | 'uk'>('ru');
@@ -184,8 +434,13 @@ export const QueryPlaygroundPage: React.FC = () => {
      * No reason is asked for here: marking happens while reading a list, and
      * stopping to classify each row costs more attention than the
      * classification is worth at that moment. The reason is set later, below.
+     *
+     * Wrapped in useCallback, and closes over `search`/`flagsHere` via refs
+     * would be the textbook move, but both already change on exactly the
+     * events (a new search, a toggled mark) that should invalidate this
+     * callback and re-render `ResultsTable` — so they stay plain dependencies.
      */
-    const judge = async (
+    const judge = useCallback(async (
         result: IPlaygroundResult,
         rank: number,
         verdict: MatchVerdict,
@@ -225,7 +480,22 @@ export const QueryPlaygroundPage: React.FC = () => {
         } finally {
             setSavingFlag(null);
         }
-    };
+    }, [search, flagsHere, refreshFlags, showError]);
+
+    const setFlagReason = useCallback(async (id: number, reason: FlagReason | null) => {
+        await updateFlag(id, { reason });
+        await refreshFlags(search?.searchLogId);
+    }, [refreshFlags, search?.searchLogId]);
+
+    const resolveFlag = useCallback(async (id: number) => {
+        await updateFlag(id, { resolved: true });
+        await refreshFlags(search?.searchLogId);
+    }, [refreshFlags, search?.searchLogId]);
+
+    const removeFlag = useCallback(async (id: number) => {
+        await deleteFlag(id);
+        await refreshFlags(search?.searchLogId);
+    }, [refreshFlags, search?.searchLogId]);
 
     const runAnalysis = async () => {
         if (!search?.searchLogId) return;
@@ -250,6 +520,19 @@ export const QueryPlaygroundPage: React.FC = () => {
             showError('Could not copy to the clipboard');
         }
     };
+
+    // Recomputed only when the request payload actually changed — typing in
+    // `query` recomputes this once per keystroke, which is unavoidable and
+    // cheap; what it must not do is invalidate the two tables below, which it
+    // no longer can, since they take `search`/`flagList`/etc., not this.
+    const facetChips = useMemo(
+        () => (search ? chips(search.filters, 'error') : null),
+        [search],
+    );
+    const rankingChips = useMemo(
+        () => (search ? chips(search.ranking, 'warning') : null),
+        [search],
+    );
 
     return (
         <Box sx={{ p: 3 }}>
@@ -351,12 +634,12 @@ export const QueryPlaygroundPage: React.FC = () => {
                         <Tooltip title="Hard gates. A business that stated a contradicting value was excluded; one that stated nothing was kept. A filter invented from a request that never said it removes businesses the person wanted.">
                             <Typography variant="caption" color="text.secondary">Filters</Typography>
                         </Tooltip>
-                        {chips(search.filters, 'error')}
+                        {facetChips}
 
                         <Tooltip title="Preferences. These only reorder businesses that already qualified — they never admit or exclude one, and a business that stated nothing is left where it was.">
                             <Typography variant="caption" color="text.secondary">Preferences</Typography>
                         </Tooltip>
-                        {chips(search.ranking, 'warning')}
+                        {rankingChips}
                     </Box>
 
                     {analysis && (
@@ -382,238 +665,25 @@ export const QueryPlaygroundPage: React.FC = () => {
                             informative kind of result: it says which of the two turned everyone away.
                         </Alert>
                     ) : (
-                        <Table size="small">
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell width={86} />
-                                    <TableCell width={90}>Score</TableCell>
-                                    <TableCell width={70}>Dist</TableCell>
-                                    <TableCell>Business</TableCell>
-                                    <TableCell>Description</TableCell>
-                                    <TableCell>Matched aspects</TableCell>
-                                    <TableCell>Business parameters</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {search.results.map((r, i) => {
-                                    const adjustment = r.score - r.relevanceScore;
-                                    const moved = Math.abs(adjustment) >= 0.0005;
-                                    const here = flagsHere.get(r.businessId);
-                                    const markedHere = here?.verdict === 'wrong';
-                                    const goodHere = here?.verdict === 'good';
-                                    // Marked against some other query. Worth showing — a repeat
-                                    // offender is a pattern — but visually distinct, because it
-                                    // says nothing about whether it belongs in *this* result set.
-                                    const markedElsewhere = !here && flagged.has(r.businessId);
-                                    return (
-                                        <TableRow
-                                            key={`${r.businessId}-${i}`}
-                                            sx={here ? { bgcolor: 'action.hover' } : undefined}
-                                        >
-                                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                                                <Tooltip title={goodHere ? 'Judged a good match. Click to clear.' : 'Judge this a good match'}>
-                                                    <span>
-                                                        <IconButton
-                                                            size="small"
-                                                            disabled={savingFlag === r.businessId}
-                                                            color={goodHere ? 'success' : 'default'}
-                                                            onClick={() => void judge(r, i + 1, 'good')}
-                                                        >
-                                                            {goodHere ? <CheckCircleIcon fontSize="small" /> : <CheckCircleOutlineIcon fontSize="small" />}
-                                                        </IconButton>
-                                                    </span>
-                                                </Tooltip>
-                                                <Tooltip
-                                                    title={
-                                                        markedHere
-                                                            ? 'Judged wrong. Click to clear.'
-                                                            : markedElsewhere
-                                                              ? 'Judged wrong in an earlier result set, which does not by itself make it wrong here.'
-                                                              : 'Judge this one wrong'
-                                                    }
-                                                >
-                                                    <span>
-                                                        <IconButton
-                                                            size="small"
-                                                            disabled={savingFlag === r.businessId}
-                                                            color={markedHere ? 'error' : markedElsewhere ? 'warning' : 'default'}
-                                                            onClick={() => void judge(r, i + 1, 'wrong')}
-                                                        >
-                                                            {markedHere ? <FlagIcon fontSize="small" /> : <OutlinedFlagIcon fontSize="small" />}
-                                                        </IconButton>
-                                                    </span>
-                                                </Tooltip>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight={700}>
-                                                    {r.score.toFixed(3)}
-                                                </Typography>
-                                                {moved && (
-                                                    <Typography
-                                                        variant="caption" display="block"
-                                                        color={adjustment > 0 ? 'success.main' : 'error.main'}
-                                                    >
-                                                        {adjustment > 0 ? '+' : ''}{adjustment.toFixed(3)} pref
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="caption">{r.distanceKm} km</Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Link
-                                                    component={RouterLink}
-                                                    to={`/businesses/${r.businessId}`}
-                                                    variant="body2" underline="hover"
-                                                >
-                                                    {r.name}
-                                                </Link>
-                                            </TableCell>
-                                            <TableCell sx={{ maxWidth: 300 }}>
-                                                <Tooltip title={r.description ?? ''}>
-                                                    <Typography
-                                                        variant="caption" color="text.secondary"
-                                                        sx={{
-                                                            display: '-webkit-box',
-                                                            WebkitLineClamp: 3,
-                                                            WebkitBoxOrient: 'vertical',
-                                                            overflow: 'hidden',
-                                                        }}
-                                                    >
-                                                        {r.description ?? '—'}
-                                                    </Typography>
-                                                </Tooltip>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                                    {r.matchedAspects.map((a) => (
-                                                        <Chip key={a} size="small" label={a} />
-                                                    ))}
-                                                </Box>
-                                            </TableCell>
-                                            <TableCell sx={{ maxWidth: 300 }}>
-                                                {chips(
-                                                    Object.fromEntries(
-                                                        Object.entries(r.facets ?? {})
-                                                            .filter(([, v]) => v != null && (!Array.isArray(v) || v.length))
-                                                            .map(([k, v]) => [k, Array.isArray(v) ? v : [String(v)]]),
-                                                    ),
-                                                    'default',
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
-                            </TableBody>
-                        </Table>
+                        <ResultsTable
+                            results={search.results}
+                            flagsHere={flagsHere}
+                            flagged={flagged}
+                            savingFlag={savingFlag}
+                            onJudge={judge}
+                        />
                     )}
                 </Paper>
             )}
 
             {flagList.length > 0 && (
-                <Paper sx={{ p: 2, mt: 3 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-                        <Typography variant="subtitle1" fontWeight={700}>
-                            Judged ({flagList.length})
-                        </Typography>
-                        {reasonCounts.map((c) => (
-                            <Chip
-                                key={c.reason ?? 'unclassified'} size="small" variant="outlined"
-                                color={c.reason ? 'default' : 'warning'}
-                                label={`${c.reason ? (FLAG_REASONS.find((r) => r.value === c.reason)?.label ?? c.reason) : 'unclassified'}: ${c.count}`}
-                            />
-                        ))}
-                    </Box>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                        Each row keeps the whole match — the query, what it was reduced to, and how
-                        the business looked at the time — so it stays readable after the search log
-                        is cleared. Mark whichever side is fewer clicks: on fifteen results where
-                        twelve are wrong, mark the three good ones. Anything left unmarked stays
-                        unknown, and is not counted as either. Classify the wrong ones here, once
-                        the pattern across several is visible.
-                    </Typography>
-                    <Table size="small">
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>Query</TableCell>
-                                <TableCell>Business</TableCell>
-                                <TableCell width={70}>Verdict</TableCell>
-                                <TableCell width={110}>Reason</TableCell>
-                                <TableCell>Matched on</TableCell>
-                                <TableCell>Note</TableCell>
-                                <TableCell width={120} align="right">Log</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {flagList.map((f) => (
-                                <TableRow key={f.id}>
-                                    <TableCell sx={{ maxWidth: 220 }}>
-                                        <Typography variant="caption">{f.query}</Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Link
-                                            component={RouterLink} to={`/businesses/${f.businessId}`}
-                                            variant="body2" underline="hover"
-                                        >
-                                            {f.businessName}
-                                        </Link>
-                                        <Typography variant="caption" color="text.secondary" display="block">
-                                            rank {f.rank} · {f.score.toFixed(3)}
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip
-                                            size="small"
-                                            color={f.verdict === 'good' ? 'success' : 'error'}
-                                            variant="outlined"
-                                            label={f.verdict === 'good' ? 'good' : 'wrong'}
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        {f.verdict === 'good' ? (
-                                            <Typography variant="caption" color="text.secondary">—</Typography>
-                                        ) : (
-                                        <TextField
-                                            select size="small" variant="standard" fullWidth
-                                            value={f.reason ?? ''}
-                                            onChange={async (e) => {
-                                                await updateFlag(f.id, {
-                                                    reason: (e.target.value || null) as FlagReason | null,
-                                                });
-                                                await refreshFlags(search?.searchLogId);
-                                            }}
-                                        >
-                                            <MenuItem value=""><em>unclassified</em></MenuItem>
-                                            {FLAG_REASONS.map((r) => (
-                                                <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>
-                                            ))}
-                                        </TextField>
-                                        )}
-                                    </TableCell>
-                                    <TableCell sx={{ maxWidth: 200 }}>
-                                        <Typography variant="caption">{f.matchedAspects.join(', ') || '—'}</Typography>
-                                    </TableCell>
-                                    <TableCell sx={{ maxWidth: 200 }}>
-                                        <Typography variant="caption" color="text.secondary">{f.note ?? '—'}</Typography>
-                                    </TableCell>
-                                    <TableCell align="right">
-                                        <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-                                            {f.searchLogId ? `#${f.searchLogId}` : '—'}
-                                        </Typography>
-                                        <Button size="small" onClick={async () => {
-                                            await updateFlag(f.id, { resolved: true });
-                                            await refreshFlags(search?.searchLogId);
-                                        }}>Resolve</Button>
-                                        <Button size="small" color="error" onClick={async () => {
-                                            await deleteFlag(f.id);
-                                            await refreshFlags(search?.searchLogId);
-                                        }}>Delete</Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </Paper>
+                <JudgedTable
+                    flagList={flagList}
+                    reasonCounts={reasonCounts}
+                    onSetReason={setFlagReason}
+                    onResolve={resolveFlag}
+                    onDelete={removeFlag}
+                />
             )}
 
         </Box>
