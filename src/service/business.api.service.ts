@@ -26,6 +26,12 @@ export interface IBusiness {
     userId?: number | null;
     coverageScore?: number | null;
     coverageAnalyzedAt?: string | null;
+    createdAt?: string;
+    logoUrl?: string | null;
+    /** Google Maps rating (imported businesses); shown attributed to Google Maps. */
+    googleRating?: number | null;
+    googleRatingCount?: number | null;
+    googleMapsUrl?: string | null;
 }
 
 export interface ICategory {
@@ -38,12 +44,7 @@ export interface ICategory {
 export interface IBusinessUser {
     id: number;
     email: string | null;
-    telegramId: number | null;
-    telegramUsername: string | null;
-    telegramFirstName: string | null;
-    telegramLastName: string | null;
-    telegramLanguageCode: string | null;
-    telegramPhotoUrl: string | null;
+    languageCode: string | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -53,12 +54,7 @@ export interface IBusinessUser {
 export interface CreateAdminBusinessUserDto {
     email?: string | null;
     password?: string;
-    telegramId?: number | null;
-    telegramUsername?: string | null;
-    telegramFirstName?: string | null;
-    telegramLastName?: string | null;
-    telegramLanguageCode?: string | null;
-    telegramPhotoUrl?: string | null;
+    languageCode?: string | null;
     isActive?: boolean;
 }
 
@@ -66,15 +62,9 @@ export interface CreateAdminBusinessUserDto {
 export interface UpdateAdminBusinessUserDto {
     email?: string | null;
     password?: string;
-    telegramId?: number | null;
-    telegramUsername?: string | null;
-    telegramFirstName?: string | null;
-    telegramLastName?: string | null;
-    telegramLanguageCode?: string | null;
-    telegramPhotoUrl?: string | null;
+    languageCode?: string | null;
     isActive?: boolean;
     clearPassword?: boolean;
-    unsetTelegramId?: boolean;
 }
 
 /** POST /admin/demands/:demandId/offers — body matches backend `AdminCreateOfferDto`. */
@@ -150,9 +140,36 @@ export interface IBusinessesPage {
     limit: number;
 }
 
-export const getBusinessesPaginated = async (page: number, limit: number): Promise<IBusinessesPage> => {
-    const response = await fetch(`${API_URL}/admin/business/list?page=${page}&limit=${limit}`);
+export type BusinessSortField = 'name' | 'createdAt' | 'coverageScore';
+export type SortDir = 'ASC' | 'DESC';
+
+export const getBusinessesPaginated = async (
+    page: number,
+    limit: number,
+    sortBy: BusinessSortField = 'name',
+    sortDir: SortDir = 'ASC',
+): Promise<IBusinessesPage> => {
+    const qs = new URLSearchParams({ page: String(page), limit: String(limit), sortBy, sortDir });
+    const response = await fetch(`${API_URL}/admin/business/list?${qs}`);
     if (!response.ok) throw new Error('Failed to fetch businesses');
+    return response.json();
+};
+
+/** GET /admin/business/map — one lightweight row per business with a location. */
+export interface IBusinessMapMarker {
+    id: string;
+    name: string;
+    userId: number | null;
+    location: { latitude: number; longitude: number };
+    logoUrl: string | null;
+    categories: string[];
+    description: string | null;
+    createdAt: string;
+}
+
+export const getBusinessesForMap = async (): Promise<IBusinessMapMarker[]> => {
+    const response = await fetch(`${API_URL}/admin/business/map`);
+    if (!response.ok) throw new Error('Failed to fetch businesses for map');
     return response.json();
 };
 
@@ -320,7 +337,7 @@ export const createBusinessUser = async (body: CreateAdminBusinessUserDto): Prom
         body: JSON.stringify(body),
     });
     if (!response.ok) {
-        if (response.status === 409) throw new Error('Email or Telegram ID already in use');
+        if (response.status === 409) throw new Error('Email already in use');
         throw new Error('Failed to create business user');
     }
     return response.json();
@@ -336,7 +353,7 @@ export const updateBusinessUser = async (userId: number, body: UpdateAdminBusine
     });
     if (!response.ok) {
         if (response.status === 404) throw new Error('Business user not found');
-        if (response.status === 409) throw new Error('Email or Telegram ID already in use');
+        if (response.status === 409) throw new Error('Email already in use');
         throw new Error('Failed to update business user');
     }
     return response.json();

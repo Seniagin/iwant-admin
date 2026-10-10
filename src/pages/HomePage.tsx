@@ -36,12 +36,48 @@ async function fetchOpenAIUsage(): Promise<OpenAIUsage> {
     return res.json();
 }
 
+// ── Google Places / Apify types ──────────────────────────────────────────────
+interface ExternalMethodStats {
+    method:   string;
+    provider: string;
+    calls:    number;
+    /** All time at list price, as if there were no free caps. */
+    costUsd:  number;
+    sku:      string | null;
+    monthCalls:        number;
+    freeCallsPerMonth: number;
+    freeCallsLeft:     number;
+    /** This billing month, after the free cap — what the invoice should show. */
+    billableMonthUsd:  number;
+}
+interface ExternalApiUsage {
+    since:        string | null;
+    month:        string;
+    totalCalls:   number;
+    totalCostUsd: number;
+    billableMonthUsd: number;
+    methods:      ExternalMethodStats[];
+}
+
+async function fetchExternalApiUsage(): Promise<ExternalApiUsage> {
+    const res = await fetch(`${API_URL}/admin/business-import/usage`);
+    if (!res.ok) throw new Error('Failed to fetch external API usage');
+    return res.json();
+}
+
+const PROVIDER_LABEL: Record<string, string> = {
+    'google-places': 'Google Places',
+    apify:           'Apify',
+};
+
 // ── model badge colours ───────────────────────────────────────────────────────
 const MODEL_COLOR: Record<string, { bg: string; text: string }> = {
     'gpt-4o':                 { bg: '#fef3c7', text: '#92400e' },
     'gpt-4o-mini':            { bg: '#eff6ff', text: '#1d4ed8' },
     'whisper-1':              { bg: '#f0fdf4', text: '#15803d' },
     'text-embedding-3-small': { bg: '#fdf4ff', text: '#7e22ce' },
+    'Google Places':          { bg: '#e0f2fe', text: '#0369a1' },
+    'Apify':                  { bg: '#fff7ed', text: '#c2410c' },
 };
 
 function modelChip(model: string) {
@@ -106,15 +142,22 @@ const MiniStat: React.FC<{ label: string; value: string; sub?: string; color?: s
 export const HomePage: React.FC = () => {
     const [stats, setStats]     = useState<AdminStatisticsResponseDto | null>(null);
     const [aiUsage, setAiUsage] = useState<OpenAIUsage | null>(null);
+    const [extUsage, setExtUsage] = useState<ExternalApiUsage | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError]     = useState<string | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true); setError(null);
         try {
-            const [s, ai] = await Promise.all([getAdminStatistics(), fetchOpenAIUsage()]);
+            const [s, ai, ext] = await Promise.all([
+                getAdminStatistics(),
+                fetchOpenAIUsage(),
+                // Optional panel — its failure shouldn't blank the whole dashboard.
+                fetchExternalApiUsage().catch(() => null),
+            ]);
             setStats(s);
             setAiUsage(ai);
+            setExtUsage(ext);
         } catch {
             setError('Failed to load statistics');
         } finally {
@@ -125,6 +168,7 @@ export const HomePage: React.FC = () => {
     useEffect(() => { load(); }, [load]);
 
     const maxCost = aiUsage ? Math.max(...aiUsage.methods.map((m) => m.costUsd), 0.000001) : 1;
+    const maxExtCost = extUsage ? Math.max(...extUsage.methods.map((m) => m.costUsd), 0.000001) : 1;
 
     return (
         <Box sx={{ px: { xs: 2, sm: 2.5, md: 3 }, py: 3, maxWidth: 1100, mx: 'auto' }}>
@@ -228,6 +272,95 @@ export const HomePage: React.FC = () => {
                                                     </TableCell>
                                                     <TableCell sx={{ py: 1.25 }}>
                                                         <CostBar value={m.costUsd} max={maxCost} />
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                            </Box>
+                        </Paper>
+                    )}
+
+                    {/* ── Google Places / Apify usage ── */}
+                    {extUsage && (
+                        <Paper elevation={0} sx={{ borderRadius: 2.5, overflow: 'hidden', boxShadow: CARD_SHADOW, mb: 3 }}>
+                            <Box sx={{ height: 3, background: 'linear-gradient(90deg,#0ea5e9,#38bdf8)' }} />
+                            <Box sx={{ p: 2.5 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                                    <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#0ea5e9' }}>
+                                        Business import APIs
+                                    </Typography>
+                                    {extUsage.since && (
+                                        <Typography sx={{ fontSize: 11, color: '#94a3b8', ml: 'auto' }}>
+                                            Since {new Date(extUsage.since).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                        </Typography>
+                                    )}
+                                </Box>
+
+                                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
+                                    <MiniStat label="API calls" value={fmt(extUsage.totalCalls)} color="#0ea5e9" />
+                                    <MiniStat
+                                        label={`To pay for ${extUsage.month}`}
+                                        value={fmtCost(extUsage.billableMonthUsd)}
+                                        sub="USD after Google's free monthly caps"
+                                        color="#16a34a"
+                                    />
+                                    <MiniStat label="List-price total" value={fmtCost(extUsage.totalCostUsd)} sub="all time, ignoring free caps" color="#f59e0b" />
+                                    {aiUsage && (
+                                        <MiniStat
+                                            label="All APIs est. cost"
+                                            value={fmtCost(extUsage.totalCostUsd + aiUsage.totalCostUsd)}
+                                            sub="OpenAI + Places + Apify"
+                                            color="#ef4444"
+                                        />
+                                    )}
+                                </Box>
+
+                                {extUsage.methods.length === 0 ? (
+                                    <Typography variant="body2" color="text.secondary">
+                                        No Google Places or Apify calls recorded yet.
+                                    </Typography>
+                                ) : (
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                                                {['Call', 'Provider', 'Calls', 'This month', 'Free left', 'To pay', 'List price'].map((h) => (
+                                                    <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', py: 1 }}>
+                                                        {h}
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {extUsage.methods.map((m, i) => (
+                                                <TableRow key={m.method} sx={{
+                                                    bgcolor: i % 2 === 0 ? '#fff' : '#fafafa',
+                                                    '&:last-child td': { borderBottom: 'none' },
+                                                    '&:hover': { bgcolor: '#f0f4ff' },
+                                                }}>
+                                                    <TableCell sx={{ py: 1.25 }}>
+                                                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#1e293b', fontFamily: 'monospace' }}>
+                                                            {m.method}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={{ py: 1.25 }}>{modelChip(PROVIDER_LABEL[m.provider] ?? m.provider)}</TableCell>
+                                                    <TableCell sx={{ py: 1.25 }}>
+                                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>{fmt(m.calls)}</Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={{ py: 1.25 }}>
+                                                        <Typography sx={{ fontSize: 13, color: '#334155' }}>{fmt(m.monthCalls)}</Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={{ py: 1.25 }} title={m.sku ?? undefined}>
+                                                        <Typography sx={{ fontSize: 13, color: m.freeCallsPerMonth && !m.freeCallsLeft ? '#dc2626' : '#334155' }}>
+                                                            {m.freeCallsPerMonth ? `${fmt(m.freeCallsLeft)} / ${fmt(m.freeCallsPerMonth)}` : '—'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={{ py: 1.25 }}>
+                                                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>{fmtCost(m.billableMonthUsd)}</Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={{ py: 1.25 }}>
+                                                        <CostBar value={m.costUsd} max={maxExtCost} />
                                                     </TableCell>
                                                 </TableRow>
                                             ))}

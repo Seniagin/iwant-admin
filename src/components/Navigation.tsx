@@ -62,6 +62,18 @@ export const Navigation: React.FC = () => {
                         🎮 Playground
                     </Link>
                     <Link
+                        to="/business-import"
+                        className={`nav-link ${location.pathname === '/business-import' ? 'active' : ''}`}
+                    >
+                        📍 Business import
+                    </Link>
+                    <Link
+                        to="/business-claims"
+                        className={`nav-link ${location.pathname === '/business-claims' ? 'active' : ''}`}
+                    >
+                        🏷️ Claims
+                    </Link>
+                    <Link
                         to="/query-playground"
                         className={`nav-link ${location.pathname === '/query-playground' ? 'active' : ''}`}
                     >

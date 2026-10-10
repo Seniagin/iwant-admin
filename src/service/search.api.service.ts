@@ -22,8 +22,6 @@ export interface DemandResponseDto {
     summarizedTranslation?: string | null;
     categoryMatchConfidence?: 'high' | 'medium' | 'low' | null;
     categoryMatchReason?: string | null;
-    telegramMessageId?: number | null;
-    telegramChatId?: number | string | null;
     createdAt: string;
     updatedAt: string;
     availableBusinessCount?: number | null;

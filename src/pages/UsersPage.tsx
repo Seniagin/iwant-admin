@@ -26,9 +26,6 @@ import { useNavigate } from 'react-router-dom';
 import { listUsers, deleteUser, type AdminUserListItemResponseDto } from '../service/users.api.service';
 
 function displayLabel(user: AdminUserListItemResponseDto): string {
-    const name = [user.telegramFirstName, user.telegramLastName].filter(Boolean).join(' ').trim();
-    if (name) return name;
-    if (user.telegramUsername) return `@${user.telegramUsername}`;
     if (user.email) return user.email;
     return '—';
 }
@@ -105,7 +102,7 @@ export const UsersPage: React.FC = () => {
                                 <TableCell>ID</TableCell>
                                 <TableCell>Display</TableCell>
                                 <TableCell>Email</TableCell>
-                                <TableCell>Telegram ID</TableCell>
+                                <TableCell>Language</TableCell>
                                 <TableCell>Status</TableCell>
                                 <TableCell>Created</TableCell>
                                 <TableCell align="right">Actions</TableCell>
@@ -119,7 +116,7 @@ export const UsersPage: React.FC = () => {
                                     </TableCell>
                                     <TableCell>{displayLabel(user)}</TableCell>
                                     <TableCell>{user.email ?? '—'}</TableCell>
-                                    <TableCell sx={{ fontFamily: 'monospace' }}>{user.telegramId ?? '—'}</TableCell>
+                                    <TableCell sx={{ fontFamily: 'monospace' }}>{user.languageCode ?? '—'}</TableCell>
                                     <TableCell>
                                         <Chip
                                             label={user.isActive ? 'Active' : 'Inactive'}

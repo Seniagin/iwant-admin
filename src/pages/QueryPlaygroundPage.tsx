@@ -36,12 +36,9 @@ import {
     updateFlag,
     deleteFlag,
     analyseSearch,
-    IFlaggedMatch,
     IPlaygroundSearch,
     IPlaygroundResult,
-    FlagReason,
     MatchVerdict,
-    FLAG_REASONS,
 } from '../service/playground-search.api.service';
 import { IconButton } from '@mui/material';
 
@@ -228,116 +225,6 @@ const ResultsTable: React.FC<{
     </Table>
 ));
 
-/**
- * The judged-history table, split out and memoized for the same reason as
- * `ResultsTable` — and more urgently here: this list holds every unresolved
- * flag across every query ever run in this playground (up to 200 of them),
- * each row mounting a MUI `Select`, which is the single heaviest widget on
- * the page. Left inline, every keystroke in the query box re-rendered and
- * re-diffed all 200 of them — the actual source of the multi-hundred-
- * millisecond input lag, not the search itself.
- */
-const JudgedTable: React.FC<{
-    flagList: IFlaggedMatch[];
-    reasonCounts: { reason: FlagReason; count: number }[];
-    onSetReason: (id: number, reason: FlagReason | null) => void;
-    onResolve: (id: number) => void;
-    onDelete: (id: number) => void;
-}> = React.memo(({ flagList, reasonCounts, onSetReason, onResolve, onDelete }) => (
-    <Paper sx={{ p: 2, mt: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-            <Typography variant="subtitle1" fontWeight={700}>
-                Judged ({flagList.length})
-            </Typography>
-            {reasonCounts.map((c) => (
-                <Chip
-                    key={c.reason ?? 'unclassified'} size="small" variant="outlined"
-                    color={c.reason ? 'default' : 'warning'}
-                    label={`${c.reason ? (FLAG_REASONS.find((r) => r.value === c.reason)?.label ?? c.reason) : 'unclassified'}: ${c.count}`}
-                />
-            ))}
-        </Box>
-        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-            Each row keeps the whole match — the query, what it was reduced to, and how
-            the business looked at the time — so it stays readable after the search log
-            is cleared. Mark whichever side is fewer clicks: on fifteen results where
-            twelve are wrong, mark the three good ones. Anything left unmarked stays
-            unknown, and is not counted as either. Classify the wrong ones here, once
-            the pattern across several is visible.
-        </Typography>
-        <Table size="small">
-            <TableHead>
-                <TableRow>
-                    <TableCell>Query</TableCell>
-                    <TableCell>Business</TableCell>
-                    <TableCell width={70}>Verdict</TableCell>
-                    <TableCell width={110}>Reason</TableCell>
-                    <TableCell>Matched on</TableCell>
-                    <TableCell>Note</TableCell>
-                    <TableCell width={120} align="right">Log</TableCell>
-                </TableRow>
-            </TableHead>
-            <TableBody>
-                {flagList.map((f) => (
-                    <TableRow key={f.id}>
-                        <TableCell sx={{ maxWidth: 220 }}>
-                            <Typography variant="caption">{f.query}</Typography>
-                        </TableCell>
-                        <TableCell>
-                            <Link
-                                component={RouterLink} to={`/businesses/${f.businessId}`}
-                                variant="body2" underline="hover"
-                            >
-                                {f.businessName}
-                            </Link>
-                            <Typography variant="caption" color="text.secondary" display="block">
-                                rank {f.rank} · {f.score.toFixed(3)}
-                            </Typography>
-                        </TableCell>
-                        <TableCell>
-                            <Chip
-                                size="small"
-                                color={f.verdict === 'good' ? 'success' : 'error'}
-                                variant="outlined"
-                                label={f.verdict === 'good' ? 'good' : 'wrong'}
-                            />
-                        </TableCell>
-                        <TableCell>
-                            {f.verdict === 'good' ? (
-                                <Typography variant="caption" color="text.secondary">—</Typography>
-                            ) : (
-                            <TextField
-                                select size="small" variant="standard" fullWidth
-                                value={f.reason ?? ''}
-                                onChange={(e) => onSetReason(f.id, (e.target.value || null) as FlagReason | null)}
-                            >
-                                <MenuItem value=""><em>unclassified</em></MenuItem>
-                                {FLAG_REASONS.map((r) => (
-                                    <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>
-                                ))}
-                            </TextField>
-                            )}
-                        </TableCell>
-                        <TableCell sx={{ maxWidth: 200 }}>
-                            <Typography variant="caption">{f.matchedAspects.join(', ') || '—'}</Typography>
-                        </TableCell>
-                        <TableCell sx={{ maxWidth: 200 }}>
-                            <Typography variant="caption" color="text.secondary">{f.note ?? '—'}</Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                            <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-                                {f.searchLogId ? `#${f.searchLogId}` : '—'}
-                            </Typography>
-                            <Button size="small" onClick={() => onResolve(f.id)}>Resolve</Button>
-                            <Button size="small" color="error" onClick={() => onDelete(f.id)}>Delete</Button>
-                        </TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
-    </Paper>
-));
-
 export const QueryPlaygroundPage: React.FC = () => {
     const [language, setLanguage] = useState<'ru' | 'uk'>('ru');
     const [hint, setHint] = useState('');
@@ -360,8 +247,6 @@ export const QueryPlaygroundPage: React.FC = () => {
     const [savingFlag, setSavingFlag] = useState<string | null>(null);
     const [analysis, setAnalysis] = useState<string | null>(null);
     const [analysing, setAnalysing] = useState(false);
-    const [flagList, setFlagList] = useState<IFlaggedMatch[]>([]);
-    const [reasonCounts, setReasonCounts] = useState<{ reason: FlagReason; count: number }[]>([]);
     const { showSuccess, showError } = useSnackbar();
 
     const generate = async () => {
@@ -406,9 +291,7 @@ export const QueryPlaygroundPage: React.FC = () => {
      */
     const refreshFlags = useCallback(async (logId?: number | null) => {
         try {
-            const { items, byReason } = await listFlags();
-            setFlagList(items);
-            setReasonCounts(byReason);
+            const { items } = await listFlags();
             setFlagged(new Set(items.map((f) => f.businessId)));
             if (logId != null) {
                 setFlagsHere(
@@ -482,21 +365,6 @@ export const QueryPlaygroundPage: React.FC = () => {
         }
     }, [search, flagsHere, refreshFlags, showError]);
 
-    const setFlagReason = useCallback(async (id: number, reason: FlagReason | null) => {
-        await updateFlag(id, { reason });
-        await refreshFlags(search?.searchLogId);
-    }, [refreshFlags, search?.searchLogId]);
-
-    const resolveFlag = useCallback(async (id: number) => {
-        await updateFlag(id, { resolved: true });
-        await refreshFlags(search?.searchLogId);
-    }, [refreshFlags, search?.searchLogId]);
-
-    const removeFlag = useCallback(async (id: number) => {
-        await deleteFlag(id);
-        await refreshFlags(search?.searchLogId);
-    }, [refreshFlags, search?.searchLogId]);
-
     const runAnalysis = async () => {
         if (!search?.searchLogId) return;
         try {
@@ -523,8 +391,8 @@ export const QueryPlaygroundPage: React.FC = () => {
 
     // Recomputed only when the request payload actually changed — typing in
     // `query` recomputes this once per keystroke, which is unavoidable and
-    // cheap; what it must not do is invalidate the two tables below, which it
-    // no longer can, since they take `search`/`flagList`/etc., not this.
+    // cheap; what it must not do is invalidate the results table below, which
+    // it no longer can, since that table takes `search`, not this.
     const facetChips = useMemo(
         () => (search ? chips(search.filters, 'error') : null),
         [search],
@@ -674,16 +542,6 @@ export const QueryPlaygroundPage: React.FC = () => {
                         />
                     )}
                 </Paper>
-            )}
-
-            {flagList.length > 0 && (
-                <JudgedTable
-                    flagList={flagList}
-                    reasonCounts={reasonCounts}
-                    onSetReason={setFlagReason}
-                    onResolve={resolveFlag}
-                    onDelete={removeFlag}
-                />
             )}
 
         </Box>

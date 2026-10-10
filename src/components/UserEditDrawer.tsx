@@ -31,16 +31,10 @@ export const UserEditDrawer: React.FC<UserEditDrawerProps> = ({ open, onClose, u
     const [saving, setSaving] = useState(false);
     const [editEmail, setEditEmail] = useState('');
     const [editPassword, setEditPassword] = useState('');
-    const [editTelegramId, setEditTelegramId] = useState('');
-    const [editTelegramUsername, setEditTelegramUsername] = useState('');
-    const [editTelegramFirstName, setEditTelegramFirstName] = useState('');
-    const [editTelegramLastName, setEditTelegramLastName] = useState('');
-    const [editTelegramLanguageCode, setEditTelegramLanguageCode] = useState('');
-    const [editTelegramPhotoUrl, setEditTelegramPhotoUrl] = useState('');
+    const [editLanguageCode, setEditLanguageCode] = useState('');
     const [editIsActive, setEditIsActive] = useState(true);
     const [editLocation, setEditLocation] = useState<Location | null>(null);
     const [editClearPassword, setEditClearPassword] = useState(false);
-    const [editUnsetTelegramId, setEditUnsetTelegramId] = useState(false);
 
     useEffect(() => {
         if (!open) {
@@ -52,12 +46,7 @@ export const UserEditDrawer: React.FC<UserEditDrawerProps> = ({ open, onClose, u
         if (!open || !user) return;
         setEditEmail(user.email ?? '');
         setEditPassword('');
-        setEditTelegramId(user.telegramId != null ? String(user.telegramId) : '');
-        setEditTelegramUsername(user.telegramUsername ?? '');
-        setEditTelegramFirstName(user.telegramFirstName ?? '');
-        setEditTelegramLastName(user.telegramLastName ?? '');
-        setEditTelegramLanguageCode(user.telegramLanguageCode ?? '');
-        setEditTelegramPhotoUrl(user.telegramPhotoUrl ?? '');
+        setEditLanguageCode(user.languageCode ?? '');
         setEditIsActive(user.isActive);
         setEditLocation(
             user.location
@@ -65,7 +54,6 @@ export const UserEditDrawer: React.FC<UserEditDrawerProps> = ({ open, onClose, u
                 : null
         );
         setEditClearPassword(false);
-        setEditUnsetTelegramId(false);
     }, [open, user]);
 
     const handleSave = async () => {
@@ -78,25 +66,9 @@ export const UserEditDrawer: React.FC<UserEditDrawerProps> = ({ open, onClose, u
 
         const patch: UpdateAdminUserDto = {
             email: editEmail.trim() ? editEmail.trim() : null,
-            telegramUsername: editTelegramUsername.trim() || null,
-            telegramFirstName: editTelegramFirstName.trim() || null,
-            telegramLastName: editTelegramLastName.trim() || null,
-            telegramLanguageCode: editTelegramLanguageCode.trim() || null,
-            telegramPhotoUrl: editTelegramPhotoUrl.trim() || null,
+            languageCode: editLanguageCode.trim() || null,
             isActive: editIsActive,
         };
-
-        if (editUnsetTelegramId) {
-            patch.unsetTelegramId = true;
-        } else {
-            const tid = editTelegramId.trim();
-            if (tid) {
-                const n = Number.parseInt(tid, 10);
-                if (Number.isFinite(n)) patch.telegramId = n;
-            } else if (user.telegramId != null) {
-                patch.telegramId = null;
-            }
-        }
 
         if (editLocation) {
             patch.latitude = editLocation.latitude;
@@ -164,61 +136,11 @@ export const UserEditDrawer: React.FC<UserEditDrawerProps> = ({ open, onClose, u
                     />
                     <TextField
                         fullWidth
-                        label="Telegram ID"
-                        value={editTelegramId}
-                        onChange={(e) => setEditTelegramId(e.target.value)}
+                        label="Language code"
+                        value={editLanguageCode}
+                        onChange={(e) => setEditLanguageCode(e.target.value)}
                         size="small"
-                        disabled={editUnsetTelegramId}
-                        sx={{ mb: 1 }}
-                    />
-                    <FormControlLabel
-                        control={
-                            <Checkbox
-                                checked={editUnsetTelegramId}
-                                onChange={(e) => setEditUnsetTelegramId(e.target.checked)}
-                            />
-                        }
-                        label="Clear Telegram ID (frees unique slot)"
-                        sx={{ mb: 2 }}
-                    />
-                    <TextField
-                        fullWidth
-                        label="Telegram username"
-                        value={editTelegramUsername}
-                        onChange={(e) => setEditTelegramUsername(e.target.value)}
-                        size="small"
-                        sx={{ mb: 2 }}
-                    />
-                    <TextField
-                        fullWidth
-                        label="Telegram first name"
-                        value={editTelegramFirstName}
-                        onChange={(e) => setEditTelegramFirstName(e.target.value)}
-                        size="small"
-                        sx={{ mb: 2 }}
-                    />
-                    <TextField
-                        fullWidth
-                        label="Telegram last name"
-                        value={editTelegramLastName}
-                        onChange={(e) => setEditTelegramLastName(e.target.value)}
-                        size="small"
-                        sx={{ mb: 2 }}
-                    />
-                    <TextField
-                        fullWidth
-                        label="Telegram language code"
-                        value={editTelegramLanguageCode}
-                        onChange={(e) => setEditTelegramLanguageCode(e.target.value)}
-                        size="small"
-                        sx={{ mb: 2 }}
-                    />
-                    <TextField
-                        fullWidth
-                        label="Telegram photo URL"
-                        value={editTelegramPhotoUrl}
-                        onChange={(e) => setEditTelegramPhotoUrl(e.target.value)}
-                        size="small"
+                        helperText="e.g. en, ru, uk"
                         sx={{ mb: 2 }}
                     />
                     <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>

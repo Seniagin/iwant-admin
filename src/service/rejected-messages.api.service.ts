@@ -7,9 +7,6 @@ export interface RejectedMessage {
     text: string;
     reason: RejectionReason;
     validationJustification: string | null;
-    telegramUserId: number | null;
-    telegramChatId: number | null;
-    telegramMessageId: number | null;
     createdAt: string;
 }
 

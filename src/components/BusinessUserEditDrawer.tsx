@@ -31,29 +31,17 @@ export const BusinessUserEditDrawer: React.FC<BusinessUserEditDrawerProps> = ({ 
     const [saving, setSaving] = useState(false);
     const [editEmail, setEditEmail] = useState('');
     const [editPassword, setEditPassword] = useState('');
-    const [editTelegramId, setEditTelegramId] = useState('');
-    const [editTelegramUsername, setEditTelegramUsername] = useState('');
-    const [editTelegramFirstName, setEditTelegramFirstName] = useState('');
-    const [editTelegramLastName, setEditTelegramLastName] = useState('');
-    const [editTelegramLanguageCode, setEditTelegramLanguageCode] = useState('');
-    const [editTelegramPhotoUrl, setEditTelegramPhotoUrl] = useState('');
+    const [editLanguageCode, setEditLanguageCode] = useState('');
     const [editIsActive, setEditIsActive] = useState(true);
     const [editClearPassword, setEditClearPassword] = useState(false);
-    const [editUnsetTelegramId, setEditUnsetTelegramId] = useState(false);
 
     useEffect(() => {
         if (!open || !user) return;
         setEditEmail(user.email ?? '');
         setEditPassword('');
-        setEditTelegramId(user.telegramId != null ? String(user.telegramId) : '');
-        setEditTelegramUsername(user.telegramUsername ?? '');
-        setEditTelegramFirstName(user.telegramFirstName ?? '');
-        setEditTelegramLastName(user.telegramLastName ?? '');
-        setEditTelegramLanguageCode(user.telegramLanguageCode ?? '');
-        setEditTelegramPhotoUrl(user.telegramPhotoUrl ?? '');
+        setEditLanguageCode(user.languageCode ?? '');
         setEditIsActive(user.isActive);
         setEditClearPassword(false);
-        setEditUnsetTelegramId(false);
     }, [open, user]);
 
     const handleSave = async () => {
@@ -66,25 +54,9 @@ export const BusinessUserEditDrawer: React.FC<BusinessUserEditDrawerProps> = ({ 
 
         const patch: UpdateAdminBusinessUserDto = {
             email: editEmail.trim() ? editEmail.trim() : null,
-            telegramUsername: editTelegramUsername.trim() || null,
-            telegramFirstName: editTelegramFirstName.trim() || null,
-            telegramLastName: editTelegramLastName.trim() || null,
-            telegramLanguageCode: editTelegramLanguageCode.trim() || null,
-            telegramPhotoUrl: editTelegramPhotoUrl.trim() || null,
+            languageCode: editLanguageCode.trim() || null,
             isActive: editIsActive,
         };
-
-        if (editUnsetTelegramId) {
-            patch.unsetTelegramId = true;
-        } else {
-            const tid = editTelegramId.trim();
-            if (tid) {
-                const n = Number.parseInt(tid, 10);
-                if (Number.isFinite(n)) patch.telegramId = n;
-            } else if (user.telegramId != null) {
-                patch.telegramId = null;
-            }
-        }
 
         if (editPassword) patch.password = editPassword;
         if (editClearPassword) patch.clearPassword = true;
@@ -143,58 +115,11 @@ export const BusinessUserEditDrawer: React.FC<BusinessUserEditDrawerProps> = ({ 
                 />
                 <TextField
                     fullWidth
-                    label="Telegram ID"
-                    value={editTelegramId}
-                    onChange={(e) => setEditTelegramId(e.target.value)}
+                    label="Language code"
+                    value={editLanguageCode}
+                    onChange={(e) => setEditLanguageCode(e.target.value)}
                     size="small"
-                    disabled={editUnsetTelegramId}
-                    sx={{ mb: 1 }}
-                />
-                <FormControlLabel
-                    control={
-                        <Checkbox checked={editUnsetTelegramId} onChange={(e) => setEditUnsetTelegramId(e.target.checked)} />
-                    }
-                    label="Clear Telegram ID"
-                    sx={{ mb: 2 }}
-                />
-                <TextField
-                    fullWidth
-                    label="Telegram username"
-                    value={editTelegramUsername}
-                    onChange={(e) => setEditTelegramUsername(e.target.value)}
-                    size="small"
-                    sx={{ mb: 2 }}
-                />
-                <TextField
-                    fullWidth
-                    label="Telegram first name"
-                    value={editTelegramFirstName}
-                    onChange={(e) => setEditTelegramFirstName(e.target.value)}
-                    size="small"
-                    sx={{ mb: 2 }}
-                />
-                <TextField
-                    fullWidth
-                    label="Telegram last name"
-                    value={editTelegramLastName}
-                    onChange={(e) => setEditTelegramLastName(e.target.value)}
-                    size="small"
-                    sx={{ mb: 2 }}
-                />
-                <TextField
-                    fullWidth
-                    label="Telegram language code"
-                    value={editTelegramLanguageCode}
-                    onChange={(e) => setEditTelegramLanguageCode(e.target.value)}
-                    size="small"
-                    sx={{ mb: 2 }}
-                />
-                <TextField
-                    fullWidth
-                    label="Telegram photo URL"
-                    value={editTelegramPhotoUrl}
-                    onChange={(e) => setEditTelegramPhotoUrl(e.target.value)}
-                    size="small"
+                    helperText="e.g. en, ru, uk"
                     sx={{ mb: 2 }}
                 />
                 <Button variant="contained" fullWidth onClick={() => void handleSave()} disabled={saving || !user}>

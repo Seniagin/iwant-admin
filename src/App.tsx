@@ -23,6 +23,8 @@ import { BusinessesListPage } from './pages/BusinessesListPage';
 import { SnackbarProvider } from './contexts/SnackbarContext';
 import { QueryPlaygroundPage } from './pages/QueryPlaygroundPage';
 import { PlaygroundPage } from './pages/PlaygroundPage';
+import { BusinessImportPage } from './pages/BusinessImportPage';
+import { BusinessClaimsPage } from './pages/BusinessClaimsPage';
 import { FacetsPage } from './pages/FacetsPage';
 import { SearchLogsPage } from './pages/SearchLogsPage';
 
@@ -64,6 +66,8 @@ function App() {
               <Route path="/categories/:categoryId/businesses" element={<CategoryBusinessesPage />} />
               <Route path="/businesses" element={<BusinessesListPage />} />
               <Route path="/playground" element={<PlaygroundPage />} />
+              <Route path="/business-import" element={<BusinessImportPage />} />
+              <Route path="/business-claims" element={<BusinessClaimsPage />} />
               <Route path="/query-playground" element={<QueryPlaygroundPage />} />
               <Route path="/facets" element={<FacetsPage />} />
               <Route path="/search-logs" element={<SearchLogsPage />} />

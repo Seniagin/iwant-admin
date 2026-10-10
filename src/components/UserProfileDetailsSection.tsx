@@ -28,18 +28,8 @@ export const UserProfileDetailsSection: React.FC<UserProfileDetailsSectionProps>
                 <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: '120px 1fr' } }}>
                     <Typography color="text.secondary">Email</Typography>
                     <Typography>{user.email ?? '—'}</Typography>
-                    <Typography color="text.secondary">Telegram ID</Typography>
-                    <Typography sx={{ fontFamily: 'monospace' }}>{user.telegramId ?? '—'}</Typography>
-                    <Typography color="text.secondary">Username</Typography>
-                    <Typography>{user.telegramUsername ? `@${user.telegramUsername}` : '—'}</Typography>
-                    <Typography color="text.secondary">First / last name</Typography>
-                    <Typography>
-                        {[user.telegramFirstName, user.telegramLastName].filter(Boolean).join(' ') || '—'}
-                    </Typography>
                     <Typography color="text.secondary">Language</Typography>
-                    <Typography>{user.telegramLanguageCode ?? '—'}</Typography>
-                    <Typography color="text.secondary">Photo URL</Typography>
-                    <Typography sx={{ wordBreak: 'break-all' }}>{user.telegramPhotoUrl ?? '—'}</Typography>
+                    <Typography>{user.languageCode ?? '—'}</Typography>
                     <Typography color="text.secondary">Created</Typography>
                     <Typography>{formatDate(user.createdAt)}</Typography>
                     <Typography color="text.secondary">Updated</Typography>
