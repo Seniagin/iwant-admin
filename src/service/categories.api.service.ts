@@ -23,7 +23,7 @@ export interface PaginatedCategoriesResult {
  * server-side, so it can't be used to populate a full picker (there are 600+).
  */
 export const getAllCategories = async (): Promise<ICategoryWithCount[]> => {
-    const response = await fetch(`${process.env.REACT_APP_API_URL}/categories`);
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/categories`);
     if (!response.ok) throw new Error('Failed to fetch categories');
     return response.json();
 };
@@ -40,7 +40,7 @@ export const getCategoriesPaginated = async (params: {
         sortBy: params.sortBy,
         sortOrder: params.sortOrder,
     });
-    const response = await fetch(`${process.env.REACT_APP_API_URL}/categories/paginated?${qs}`);
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/categories/paginated?${qs}`);
     if (!response.ok) throw new Error('Failed to fetch categories');
     return response.json();
 };
@@ -49,7 +49,7 @@ export const getCategoriesPaginated = async (params: {
 const API_URL = process.env.REACT_APP_API_URL;
 
 export const createCategory = async (name: string) => {
-    const response = await fetch(`${API_URL}/categories/new`, {
+    const response = await fetch(`${API_URL}/admin/categories/new`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -105,7 +105,7 @@ export const removeCategoryFromBusiness = async (businessId: string, categoryId:
 };
 
 export const getIndexStats = async () => {
-    const response = await fetch(`${API_URL}/categories/stats/index`, {
+    const response = await fetch(`${API_URL}/admin/categories/stats/index`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json'
@@ -116,7 +116,7 @@ export const getIndexStats = async () => {
 };
 
 export const syncCategories = async () => {
-    const response = await fetch(`${API_URL}/categories/sync`, {
+    const response = await fetch(`${API_URL}/admin/categories/sync`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'

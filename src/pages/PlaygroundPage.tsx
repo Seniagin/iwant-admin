@@ -6,7 +6,6 @@ import {
     CircularProgress,
     Divider,
     FormControlLabel,
-    MenuItem,
     Paper,
     Slider,
     Switch,
@@ -15,7 +14,11 @@ import {
     Alert,
 } from '@mui/material';
 import { MapContainer, TileLayer, Marker, Circle, useMapEvents } from 'react-leaflet';
-import { generateMockBusinesses, MockBusinessResult } from '../service/mock.api.service';
+import {
+    placeMockBusinesses,
+    PlaceMockBusinessesResult,
+    removeMockBusinesses,
+} from '../service/mock.api.service';
 import { getAllCategories, ICategoryWithCount } from '../service/categories.api.service';
 import { ReindexPanel } from '../components/common/ReindexPanel';
 import { useReindex } from '../utils/hooks/useReindex';
@@ -34,20 +37,23 @@ function MapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => voi
 }
 
 const DEFAULT_CENTER: MapCenter = { lat: 39.466667 , lng: -0.375000 }; // Valencia
+/** The predefined mock pool (`Backend/src/mock/data/mock-businesses.json`). */
+const POOL_SIZE = 2000;
 
 export const PlaygroundPage: React.FC = () => {
     const [center, setCenter] = useState<MapCenter | null>(null);
     const [radiusKm, setRadiusKm] = useState<number>(5);
-    const [minPerCategory, setMinPerCategory] = useState<number>(1);
-    const [maxPerCategory, setMaxPerCategory] = useState<number>(3);
-    const [locale, setLocale] = useState<'' | 'en' | 'ru' | 'uk'>('');
+    const [count, setCount] = useState<number>(POOL_SIZE);
+    const [replace, setReplace] = useState(true);
+    const [removing, setRemoving] = useState(false);
+    const [removedNote, setRemovedNote] = useState<string | null>(null);
     const [allCategories, setAllCategories] = useState<ICategoryWithCount[]>([]);
     const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(new Set());
-    const [useAllCategories, setUseAllCategories] = useState(false);
+    const [useAllCategories, setUseAllCategories] = useState(true);
     const [categorySearch, setCategorySearch] = useState('');
     const [loading, setLoading] = useState(false);
     const [categoriesLoading, setCategoriesLoading] = useState(true);
-    const [result, setResult] = useState<{ created: number; businesses: MockBusinessResult[] } | null>(null);
+    const [result, setResult] = useState<PlaceMockBusinessesResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const reindex = useReindex();
 
@@ -81,26 +87,39 @@ export const PlaygroundPage: React.FC = () => {
         setLoading(true);
         setError(null);
         setResult(null);
+        setRemovedNote(null);
         try {
-            const res = await generateMockBusinesses({
+            const res = await placeMockBusinesses({
                 centerLat: center.lat,
                 centerLng: center.lng,
                 radiusKm,
-                minPerCategory,
-                maxPerCategory,
+                count,
                 categoryIds: useAllCategories ? [] : Array.from(selectedCategoryIds),
-                locale: locale || undefined,
+                replace,
             });
             setResult(res);
         } catch (e: any) {
-            setError(e.message ?? 'Generation failed');
+            setError(e.message ?? 'Placing failed');
         } finally {
             setLoading(false);
         }
     };
 
-    const canGenerate =
-        !!center && minPerCategory <= maxPerCategory && (useAllCategories || selectedCategoryIds.size > 0);
+    const handleRemove = async () => {
+        setRemoving(true);
+        setError(null);
+        setResult(null);
+        try {
+            const { removed } = await removeMockBusinesses();
+            setRemovedNote(`Removed ${removed} mock businesses`);
+        } catch (e: any) {
+            setError(e.message ?? 'Removing failed');
+        } finally {
+            setRemoving(false);
+        }
+    };
+
+    const canGenerate = !!center && (useAllCategories || selectedCategoryIds.size > 0);
 
     return (
         <Box sx={{ display: 'flex', gap: 2, p: 3, height: 'calc(100vh - 80px)', overflow: 'hidden' }}>
@@ -121,7 +140,8 @@ export const PlaygroundPage: React.FC = () => {
                     🎮 Playground
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                    Click the map to set the center point, configure options, then generate mock businesses.
+                    Click the map to set the center point, then place the predefined mock businesses
+                    ({POOL_SIZE}, covering most things people ask for) around it.
                 </Typography>
 
                 <Divider />
@@ -158,54 +178,29 @@ export const PlaygroundPage: React.FC = () => {
                     />
                 </Box>
 
-                {/* Businesses per category */}
+                {/* How many of the pool */}
                 <Box>
                     <Typography variant="subtitle2" gutterBottom>
-                        Businesses per category
+                        How many: <strong>{count}</strong> of {POOL_SIZE}
                     </Typography>
-                    <Box sx={{ display: 'flex', gap: 1.5 }}>
-                        <TextField
-                            label="Min"
-                            type="number"
-                            size="small"
-                            value={minPerCategory}
-                            onChange={(e) => setMinPerCategory(Math.max(0, Number(e.target.value)))}
-                            inputProps={{ min: 0 }}
-                            sx={{ width: 80 }}
-                        />
-                        <TextField
-                            label="Max"
-                            type="number"
-                            size="small"
-                            value={maxPerCategory}
-                            onChange={(e) => setMaxPerCategory(Math.max(0, Number(e.target.value)))}
-                            inputProps={{ min: 0 }}
-                            sx={{ width: 80 }}
-                        />
-                    </Box>
-                    {minPerCategory > maxPerCategory && (
-                        <Typography variant="caption" color="error">
-                            Min must be ≤ max
-                        </Typography>
-                    )}
+                    <Slider
+                        min={50}
+                        max={POOL_SIZE}
+                        step={50}
+                        value={count}
+                        onChange={(_, v) => setCount(v as number)}
+                        valueLabelDisplay="auto"
+                    />
+                    <Typography variant="caption" color="text.secondary" display="block">
+                        Fewer than all still covers every niche it can: the pool is taken one niche at a time.
+                        Descriptions are in Spanish, English, Russian and Ukrainian.
+                    </Typography>
                 </Box>
 
-                {/* Description language */}
-                <Box>
-                    <TextField
-                        select
-                        label="Description language"
-                        size="small"
-                        fullWidth
-                        value={locale}
-                        onChange={(e) => setLocale(e.target.value as typeof locale)}
-                    >
-                        <MenuItem value="">Mixed (random per business)</MenuItem>
-                        <MenuItem value="en">English</MenuItem>
-                        <MenuItem value="ru">Русский</MenuItem>
-                        <MenuItem value="uk">Українська</MenuItem>
-                    </TextField>
-                </Box>
+                <FormControlLabel
+                    control={<Switch checked={replace} onChange={(e) => setReplace(e.target.checked)} />}
+                    label="Remove earlier mock businesses first"
+                />
 
                 <Divider />
 
@@ -220,11 +215,10 @@ export const PlaygroundPage: React.FC = () => {
                         }
                         label={`All categories${allCategories.length ? ` (${allCategories.length})` : ''}`}
                     />
-                    {useAllCategories && (
-                        <Typography variant="caption" color="warning.main" display="block">
-                            Each generated business costs an OpenAI call — pick specific categories to keep it cheap.
-                        </Typography>
-                    )}
+                    <Typography variant="caption" color="text.secondary" display="block">
+                        Placing costs embeddings only (~$0.01 for the whole pool): the descriptions and their
+                        search signals come ready from the pool file.
+                    </Typography>
 
                     {!useAllCategories && (
                         <Box sx={{ mt: 1 }}>
@@ -299,15 +293,27 @@ export const PlaygroundPage: React.FC = () => {
                     disabled={!canGenerate || loading}
                     startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
                 >
-                    {loading ? 'Generating…' : 'Generate businesses'}
+                    {loading ? 'Placing… (a few minutes for the whole pool)' : 'Place mock businesses'}
+                </Button>
+                <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={handleRemove}
+                    disabled={loading || removing}
+                    startIcon={removing ? <CircularProgress size={18} color="inherit" /> : undefined}
+                >
+                    Remove all mock businesses
                 </Button>
 
                 {error && <Alert severity="error">{error}</Alert>}
+                {removedNote && <Alert severity="info">{removedNote}</Alert>}
 
                 {result && (
-                    <Alert severity="success">
-                        Created <strong>{result.created}</strong> mock businesses across{' '}
+                    <Alert severity={result.failed ? 'warning' : 'success'}>
+                        Placed <strong>{result.created}</strong> mock businesses across{' '}
                         <strong>{new Set(result.businesses.map((b) => b.category)).size}</strong> categories
+                        {result.removed > 0 && <> (removed {result.removed} earlier ones)</>}
+                        {result.failed > 0 && <>; {result.failed} failed — see the server log</>}
                     </Alert>
                 )}
 

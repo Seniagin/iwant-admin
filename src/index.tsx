@@ -2,7 +2,11 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { installAdminFetch } from './auth/adminSession';
 import reportWebVitals from './reportWebVitals';
+
+// Before anything renders: every request to the API carries the admin session.
+installAdminFetch();
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

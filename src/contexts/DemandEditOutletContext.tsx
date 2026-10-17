@@ -1,14 +1,11 @@
 import React, { createContext, useCallback, useEffect, useState } from 'react';
 import {
-    acceptDemand,
     deleteDemand,
     getCategories,
-    rejectDemand,
     updateDemandCategory,
     type DemandResponseDto,
 } from '../service/search.api.service';
 import { useSnackbar } from './SnackbarContext';
-import { DemandStatusEnum } from '../types/demandStatus';
 import { DemandEditDrawer, type DemandCategoryOption } from '../components/DemandEditDrawer';
 
 export type DemandEditOutletContextValue = {
@@ -84,38 +81,6 @@ export const DemandEditOutletProvider: React.FC<DemandEditOutletProviderProps> =
         }
     };
 
-    const handleAccept = async (id: number) => {
-        try {
-            setUpdatingDemandId(id);
-            await acceptDemand(id);
-            showSuccess('Demand accepted successfully!');
-            await runAfterMutation();
-            setEditingDemand((prev) =>
-                prev && prev.id === id ? { ...prev, demandStatus: DemandStatusEnum.ACTIVE } : prev
-            );
-        } catch {
-            showError('Failed to accept demand. Please try again.');
-        } finally {
-            setUpdatingDemandId(null);
-        }
-    };
-
-    const handleReject = async (id: number) => {
-        try {
-            setUpdatingDemandId(id);
-            await rejectDemand(id);
-            showSuccess('Demand rejected successfully!');
-            await runAfterMutation();
-            setEditingDemand((prev) =>
-                prev && prev.id === id ? { ...prev, demandStatus: DemandStatusEnum.DECLINED } : prev
-            );
-        } catch {
-            showError('Failed to reject demand. Please try again.');
-        } finally {
-            setUpdatingDemandId(null);
-        }
-    };
-
     const handleDeleteFromDrawer = async (id: number) => {
         try {
             await deleteDemand(id);
@@ -138,8 +103,6 @@ export const DemandEditOutletProvider: React.FC<DemandEditOutletProviderProps> =
                 isLoadingCategories={isLoadingCategories}
                 updatingDemandId={updatingDemandId}
                 onCategoryChange={handleCategoryChange}
-                onAccept={handleAccept}
-                onReject={handleReject}
                 onDelete={handleDeleteFromDrawer}
             />
         </DemandEditOutletContext.Provider>

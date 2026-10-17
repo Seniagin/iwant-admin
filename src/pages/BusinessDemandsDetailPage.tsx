@@ -28,7 +28,7 @@ const CARD_SHADOW = '0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06)';
 function demandText(o: BusinessOfferDto): string {
     const d = o.demand;
     if (!d) return `Demand #${o.demandId}`;
-    return d.summarizedTranslation || d.translation || d.transcription || `Demand #${d.id}`;
+    return d.transcription || d.translation || `Demand #${d.id}`;
 }
 
 function fmtDate(iso: string): string {
@@ -84,7 +84,7 @@ const OfferDialog: React.FC<{
     };
 
     const text = demand
-        ? demand.summarizedTranslation || demand.translation || demand.transcription || `Demand #${demand.id}`
+        ? demand.transcription || demand.translation || `Demand #${demand.id}`
         : '';
 
     return (
@@ -185,7 +185,7 @@ const PendingDemandsSection: React.FC<{
                                     }}>
                                         <TableCell sx={{ py: 1.25 }}>
                                             <Typography sx={{ fontSize: 13, color: '#334155', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.4 }}>
-                                                {d.summarizedTranslation || d.translation || d.transcription || `Demand #${d.id}`}
+                                                {d.transcription || d.translation || `Demand #${d.id}`}
                                             </Typography>
                                         </TableCell>
                                         <TableCell sx={{ py: 1.25 }}>

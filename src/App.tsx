@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ADMIN_LOGOUT_EVENT, getAdminToken } from './auth/adminSession';
+import { AdminLoginPage } from './pages/AdminLoginPage';
 import './App.css';
 import { Layout } from './components/Layout';
 import { Navigation } from './components/Navigation';
@@ -25,10 +27,22 @@ import { QueryPlaygroundPage } from './pages/QueryPlaygroundPage';
 import { PlaygroundPage } from './pages/PlaygroundPage';
 import { BusinessImportPage } from './pages/BusinessImportPage';
 import { BusinessClaimsPage } from './pages/BusinessClaimsPage';
+import { ModerationPage } from './pages/ModerationPage';
 import { FacetsPage } from './pages/FacetsPage';
 import { SearchLogsPage } from './pages/SearchLogsPage';
 
 function App() {
+  const [signedIn, setSignedIn] = useState(() => !!getAdminToken());
+
+  // A 401 anywhere (expired or revoked session) brings the sign-in page back.
+  useEffect(() => {
+    const onLogout = () => setSignedIn(false);
+    window.addEventListener(ADMIN_LOGOUT_EVENT, onLogout);
+    return () => window.removeEventListener(ADMIN_LOGOUT_EVENT, onLogout);
+  }, []);
+
+  if (!signedIn) return <AdminLoginPage onSignedIn={() => setSignedIn(true)} />;
+
   return (
     <SnackbarProvider>
       <Router>
@@ -39,6 +53,7 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/demands" element={<DemandsPage />} />
+              <Route path="/moderation" element={<ModerationPage />} />
               <Route path="/demands/uncategorized" element={<UncategorizedDemandsPage />} />
               <Route path="/demands/low-coverage" element={<LowCoverageDemandsPage />} />
               <Route path="/demands/rejected" element={<RejectedMessagesPage />} />

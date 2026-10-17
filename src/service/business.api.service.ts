@@ -302,7 +302,6 @@ export interface BusinessOfferDto {
     createdAt: string;
     demand: {
         id: number;
-        summarizedTranslation: string | null;
         translation: string | null;
         transcription: string | null;
         createdAt: string;

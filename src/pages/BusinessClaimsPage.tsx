@@ -120,9 +120,9 @@ export const BusinessClaimsPage: React.FC = () => {
                                     Claimed by:{' '}
                                     <MuiLink
                                         component={RouterLink}
-                                        to={`/business-users/${claim.businessUserId}`}
+                                        to={`/business-users/${claim.userId}`}
                                     >
-                                        {claim.account?.email ?? `account #${claim.businessUserId}`}
+                                        {claim.account?.email ?? `account #${claim.userId}`}
                                     </MuiLink>
                                 </Typography>
                                 <Typography variant="body2" color={claim.note ? 'text.primary' : 'text.secondary'}>

@@ -40,13 +40,13 @@ async function parseError(response: Response, fallback: string): Promise<never> 
 }
 
 export const getFacets = async (): Promise<IFacet[]> => {
-    const response = await fetch(`${API_URL}/facets`);
+    const response = await fetch(`${API_URL}/admin/facets`);
     if (!response.ok) return parseError(response, 'Failed to fetch parameters');
     return response.json();
 };
 
 export const createFacet = async (facet: Partial<FacetInput>): Promise<IFacet> => {
-    const response = await fetch(`${API_URL}/facets`, {
+    const response = await fetch(`${API_URL}/admin/facets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(facet),
@@ -56,7 +56,7 @@ export const createFacet = async (facet: Partial<FacetInput>): Promise<IFacet> =
 };
 
 export const updateFacet = async (id: string, facet: Partial<FacetInput>): Promise<IFacet> => {
-    const response = await fetch(`${API_URL}/facets/${id}`, {
+    const response = await fetch(`${API_URL}/admin/facets/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(facet),
@@ -66,6 +66,6 @@ export const updateFacet = async (id: string, facet: Partial<FacetInput>): Promi
 };
 
 export const deleteFacet = async (id: string): Promise<void> => {
-    const response = await fetch(`${API_URL}/facets/${id}`, { method: 'DELETE' });
+    const response = await fetch(`${API_URL}/admin/facets/${id}`, { method: 'DELETE' });
     if (!response.ok) return parseError(response, 'Failed to delete parameter');
 };

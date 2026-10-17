@@ -5,7 +5,7 @@ export type ClaimStatus = 'pending' | 'approved' | 'rejected';
 export interface IBusinessClaimRequest {
     id: string;
     businessId: string;
-    businessUserId: number;
+    userId: number;
     note: string | null;
     status: ClaimStatus;
     createdAt: string;
