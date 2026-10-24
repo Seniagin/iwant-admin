@@ -9,12 +9,7 @@ export interface AdminUserGeoPointDto {
 export interface AdminUserListItemResponseDto {
     id: number;
     email: string | null;
-    telegramId: number | null;
-    telegramUsername: string | null;
-    telegramFirstName: string | null;
-    telegramLastName: string | null;
-    telegramLanguageCode: string | null;
-    telegramPhotoUrl: string | null;
+    languageCode: string | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -45,12 +40,7 @@ export interface AdminUserContactResponseDto {
 export interface AdminUserDetailResponseDto {
     id: number;
     email: string | null;
-    telegramId: number | null;
-    telegramUsername: string | null;
-    telegramFirstName: string | null;
-    telegramLastName: string | null;
-    telegramLanguageCode: string | null;
-    telegramPhotoUrl: string | null;
+    languageCode: string | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -63,12 +53,7 @@ export interface AdminUserDetailResponseDto {
 export interface CreateAdminUserDto {
     email?: string | null;
     password?: string;
-    telegramId?: number | null;
-    telegramUsername?: string | null;
-    telegramFirstName?: string | null;
-    telegramLastName?: string | null;
-    telegramLanguageCode?: string | null;
-    telegramPhotoUrl?: string | null;
+    languageCode?: string | null;
     isActive?: boolean;
     latitude?: number;
     longitude?: number;
@@ -77,18 +62,12 @@ export interface CreateAdminUserDto {
 /** OpenAPI `UpdateAdminUserDto` — PATCH /admin/user/{id} */
 export interface UpdateAdminUserDto {
     email?: string | null;
-    telegramId?: number | null;
-    telegramUsername?: string | null;
-    telegramFirstName?: string | null;
-    telegramLastName?: string | null;
-    telegramLanguageCode?: string | null;
-    telegramPhotoUrl?: string | null;
+    languageCode?: string | null;
     isActive?: boolean;
     latitude?: number;
     longitude?: number;
     password?: string;
     clearPassword?: boolean;
-    unsetTelegramId?: boolean;
 }
 
 export const listUsers = async (params?: { page?: number; limit?: number }): Promise<AdminUserListItemResponseDto[]> => {

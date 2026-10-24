@@ -1,20 +1,22 @@
 import React from 'react';
 import {
+    Alert,
+    Link as MuiLink,
     Box,
     Button,
     Chip,
-    CircularProgress,
     Drawer,
     FormControl,
     IconButton,
     MenuItem,
     Select,
+    Tooltip,
     Typography,
 } from '@mui/material';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
+import { Link as RouterLink } from 'react-router-dom';
 import type { DemandResponseDto } from '../service/search.api.service';
 import { DemandStatusEnum } from '../types/demandStatus';
 import { demandStatusChipColor, formatDemandStatus } from '../utils/demandDisplay';
@@ -32,8 +34,6 @@ export interface DemandEditDrawerProps {
     isLoadingCategories: boolean;
     updatingDemandId: number | null;
     onCategoryChange: (demandId: number, categoryId: string) => void | Promise<void>;
-    onAccept: (id: number) => void | Promise<void>;
-    onReject: (id: number) => void | Promise<void>;
     onDelete: (id: number) => void | Promise<void>;
 }
 
@@ -45,8 +45,6 @@ export const DemandEditDrawer: React.FC<DemandEditDrawerProps> = ({
     isLoadingCategories,
     updatingDemandId,
     onCategoryChange,
-    onAccept,
-    onReject,
     onDelete,
 }) => {
     return (
@@ -73,6 +71,28 @@ export const DemandEditDrawer: React.FC<DemandEditDrawerProps> = ({
                             <Typography variant="body1" sx={{ mb: 2 }}>
                                 {demand.translation ?? '—'}
                             </Typography>
+                            {demand.timingPreference && demand.timingPreference.urgency !== 'flexible' && (
+                                <Box sx={{ mb: 2 }}>
+                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                        Timing
+                                    </Typography>
+                                    <Tooltip
+                                        title={[
+                                            demand.timingPreference.dateFrom && `Date: ${demand.timingPreference.dateFrom}${demand.timingPreference.dateTo ? ` – ${demand.timingPreference.dateTo}` : ''}`,
+                                            demand.timingPreference.timeFrom && `Time: ${demand.timingPreference.timeFrom}${demand.timingPreference.timeTo ? ` – ${demand.timingPreference.timeTo}` : ''}`,
+                                        ].filter(Boolean).join(' · ') || ''}
+                                        placement="top"
+                                    >
+                                        <Chip
+                                            icon={<AccessTimeIcon />}
+                                            label={demand.timingPreference.raw || demand.timingPreference.urgency.replace('_', ' ')}
+                                            size="small"
+                                            color={demand.timingPreference.urgency === 'asap' ? 'error' : demand.timingPreference.urgency === 'today' ? 'warning' : 'info'}
+                                            sx={{ cursor: 'default' }}
+                                        />
+                                    </Tooltip>
+                                </Box>
+                            )}
                             {demand.categoryMatchConfidence && (
                                 <>
                                     <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -142,40 +162,13 @@ export const DemandEditDrawer: React.FC<DemandEditDrawerProps> = ({
                         </Box>
 
                         {demand.demandStatus === DemandStatusEnum.PENDING_REVIEW && (
-                            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                                <Button
-                                    variant="contained"
-                                    color="success"
-                                    startIcon={
-                                        updatingDemandId === demand.id ? (
-                                            <CircularProgress size={16} />
-                                        ) : (
-                                            <CheckCircleIcon />
-                                        )
-                                    }
-                                    onClick={() => void onAccept(demand.id)}
-                                    disabled={updatingDemandId === demand.id}
-                                    fullWidth
-                                >
-                                    Accept
-                                </Button>
-                                <Button
-                                    variant="contained"
-                                    color="error"
-                                    startIcon={
-                                        updatingDemandId === demand.id ? (
-                                            <CircularProgress size={16} />
-                                        ) : (
-                                            <CancelIcon />
-                                        )
-                                    }
-                                    onClick={() => void onReject(demand.id)}
-                                    disabled={updatingDemandId === demand.id}
-                                    fullWidth
-                                >
-                                    Reject
-                                </Button>
-                            </Box>
+                            <Alert severity="warning" sx={{ mb: 2 }}>
+                                Waiting for moderation — approve or reject it on the{' '}
+                                <MuiLink component={RouterLink} to="/moderation" onClick={onClose}>
+                                    Moderation page
+                                </MuiLink>
+                                , where you see who it goes to.
+                            </Alert>
                         )}
 
                         <Button

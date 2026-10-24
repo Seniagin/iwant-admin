@@ -16,9 +16,6 @@ import { UserProfileDetailsSection } from '../components/UserProfileDetailsSecti
 import { UserDemandsPanel } from '../components/UserDemandsPanel';
 
 function displayName(user: AdminUserDetailResponseDto): string {
-    const name = [user.telegramFirstName, user.telegramLastName].filter(Boolean).join(' ').trim();
-    if (name) return name;
-    if (user.telegramUsername) return `@${user.telegramUsername}`;
     if (user.email) return user.email;
     return `User #${user.id}`;
 }

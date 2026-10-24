@@ -2,5 +2,5 @@
 export enum OfferTimingEnum {
     TODAY = 'TODAY',
     THIS_WEEK = 'THIS_WEEK',
-    AFTER_THIS_WEEK = 'AFTER_THIS_WEEK',
+    DISCUSSIBLE = 'DISCUSSIBLE',
 }

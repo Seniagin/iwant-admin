@@ -354,3 +354,27 @@ p {
 .categories-table td:last-child {
     text-align: right;
 }
+
+/* Log out sits in the nav row but is a button, not a link. */
+.nav-link--button {
+  background: none;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+/* Requests waiting for manual moderation, on the menu item. */
+.nav-badge {
+    display: inline-block;
+    min-width: 1.3rem;
+    margin-left: 0.4rem;
+    padding: 0 0.35rem;
+    border-radius: 0.65rem;
+    background: #ef4444;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.3rem;
+    text-align: center;
+}

@@ -2,6 +2,15 @@ import { DemandStatusEnum } from '../types/demandStatus';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
+export interface TimingPreference {
+    urgency: 'asap' | 'today' | 'this_week' | 'specific_date' | 'flexible';
+    dateFrom: string | null;
+    dateTo: string | null;
+    timeFrom: string | null;
+    timeTo: string | null;
+    raw: string;
+}
+
 /** Matches Admin API `DemandResponseDto` (OpenAPI /admin/demands). */
 export interface DemandResponseDto {
     id: number;
@@ -10,14 +19,12 @@ export interface DemandResponseDto {
     userId: number;
     transcription?: string | null;
     translation?: string | null;
-    summarizedTranslation?: string | null;
     categoryMatchConfidence?: 'high' | 'medium' | 'low' | null;
     categoryMatchReason?: string | null;
-    telegramMessageId?: number | null;
-    telegramChatId?: number | string | null;
     createdAt: string;
     updatedAt: string;
     availableBusinessCount?: number | null;
+    timingPreference?: TimingPreference | null;
     user?: {
         id: number;
         location?: { longitude: number; latitude: number } | null;
@@ -130,7 +137,7 @@ export const createManualDemandForUser = async (
 };
 
 export const getCategories = async () => {
-    const response = await fetch(`${API_URL}/categories`, {
+    const response = await fetch(`${API_URL}/admin/categories`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json'
@@ -140,7 +147,7 @@ export const getCategories = async () => {
 }
 
 export const deleteCategory = async (id: string) => {
-    const response = await fetch(`${API_URL}/categories/${id}`, {
+    const response = await fetch(`${API_URL}/admin/categories/${id}`, {
         method: 'DELETE',
         headers: {
             'Content-Type': 'application/json'
@@ -150,7 +157,7 @@ export const deleteCategory = async (id: string) => {
 }
 
 export const deleteDemand = async (id: string | number) => {
-    const response = await fetch(`${API_URL}/demands/${id}`, {
+    const response = await fetch(`${API_URL}/admin/demands/${id}`, {
         method: 'DELETE',
         headers: {
             'Content-Type': 'application/json'
@@ -168,28 +175,6 @@ export const updateDemandCategory = async (id: string | number, categoryId: stri
         body: JSON.stringify({ categoryId })
     });
     if (!response.ok) throw new Error('Failed to update demand category');
-    return response.json();
-}
-
-export const acceptDemand = async (id: string | number) => {
-    const response = await fetch(`${API_URL}/admin/demands/${id}/accept`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    });
-    if (!response.ok) throw new Error('Failed to accept demand');
-    return response.json();
-}
-
-export const rejectDemand = async (id: string | number) => {
-    const response = await fetch(`${API_URL}/admin/demands/${id}/reject`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    });
-    if (!response.ok) throw new Error('Failed to reject demand');
     return response.json();
 }
 
@@ -213,6 +198,18 @@ export interface AdminStatisticsResponseDto {
     demandsWithOffers: number;
     demandsWithOffersPercent: number;
 }
+
+export const getUncategorizedDemands = async (params?: {
+    page?: number;
+    limit?: number;
+}): Promise<PaginatedDemandsResponseDto> => {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 50;
+    const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
+    const response = await fetch(`${API_URL}/admin/demands/uncategorized?${qs}`);
+    if (!response.ok) throw new Error('Failed to fetch uncategorized demands');
+    return response.json();
+};
 
 export const getLowCoverageDemands = async (params?: {
     threshold?: number;

@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ADMIN_LOGOUT_EVENT, getAdminToken } from './auth/adminSession';
+import { AdminLoginPage } from './pages/AdminLoginPage';
 import './App.css';
 import { Layout } from './components/Layout';
 import { Navigation } from './components/Navigation';
@@ -18,10 +20,29 @@ import BusinessDemandsDetailPage from './pages/BusinessDemandsDetailPage';
 import { CategoryBusinessesPage } from './pages/CategoryBusinessesPage';
 import { LowCoverageDemandsPage } from './pages/LowCoverageDemandsPage';
 import { RejectedMessagesPage } from './pages/RejectedMessagesPage';
+import { UncategorizedDemandsPage } from './pages/UncategorizedDemandsPage';
 import { BusinessesListPage } from './pages/BusinessesListPage';
 import { SnackbarProvider } from './contexts/SnackbarContext';
+import { QueryPlaygroundPage } from './pages/QueryPlaygroundPage';
+import { PlaygroundPage } from './pages/PlaygroundPage';
+import { BusinessImportPage } from './pages/BusinessImportPage';
+import { BusinessClaimsPage } from './pages/BusinessClaimsPage';
+import { ModerationPage } from './pages/ModerationPage';
+import { FacetsPage } from './pages/FacetsPage';
+import { SearchLogsPage } from './pages/SearchLogsPage';
 
 function App() {
+  const [signedIn, setSignedIn] = useState(() => !!getAdminToken());
+
+  // A 401 anywhere (expired or revoked session) brings the sign-in page back.
+  useEffect(() => {
+    const onLogout = () => setSignedIn(false);
+    window.addEventListener(ADMIN_LOGOUT_EVENT, onLogout);
+    return () => window.removeEventListener(ADMIN_LOGOUT_EVENT, onLogout);
+  }, []);
+
+  if (!signedIn) return <AdminLoginPage onSignedIn={() => setSignedIn(true)} />;
+
   return (
     <SnackbarProvider>
       <Router>
@@ -32,6 +53,10 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/demands" element={<DemandsPage />} />
+              <Route path="/moderation" element={<ModerationPage />} />
+              <Route path="/demands/uncategorized" element={<UncategorizedDemandsPage />} />
+              <Route path="/demands/low-coverage" element={<LowCoverageDemandsPage />} />
+              <Route path="/demands/rejected" element={<RejectedMessagesPage />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/users/new" element={<UserCreatePage />} />
               <Route path="/users/:userId" element={<UserDetailsPage />} />
@@ -54,10 +79,13 @@ function App() {
               <Route path="/business-users/new" element={<BusinessUserCreatePage />} />
               <Route path="/business-users/:userId" element={<BusinessUserDetailsPage />} />
               <Route path="/categories/:categoryId/businesses" element={<CategoryBusinessesPage />} />
-              <Route path="/low-coverage-demands" element={<LowCoverageDemandsPage />} />
               <Route path="/businesses" element={<BusinessesListPage />} />
-
-              <Route path="/rejected-messages" element={<RejectedMessagesPage />} />
+              <Route path="/playground" element={<PlaygroundPage />} />
+              <Route path="/business-import" element={<BusinessImportPage />} />
+              <Route path="/business-claims" element={<BusinessClaimsPage />} />
+              <Route path="/query-playground" element={<QueryPlaygroundPage />} />
+              <Route path="/facets" element={<FacetsPage />} />
+              <Route path="/search-logs" element={<SearchLogsPage />} />
             </Routes>
           </Layout>
         </div>

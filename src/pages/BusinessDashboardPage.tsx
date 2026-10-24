@@ -9,6 +9,7 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import { getBusinessById, getBusinessDemands, getBusinessOffers } from '../service/business.api.service';
 import type { BusinessOfferDto, IBusiness } from '../service/business.api.service';
+import { BusinessParametersPanel } from '../components/BusinessParametersPanel';
 
 // ── design tokens ─────────────────────────────────────────────────────────────
 const HEADER_H    = 60;
@@ -125,6 +126,68 @@ const LegendRow: React.FC<{ color: string; label: string; value: number; total: 
 );
 
 // ── page ──────────────────────────────────────────────────────────────────────
+// ── description card ─────────────────────────────────────────────────────────
+type DescLang = 'original' | 'ru' | 'en' | 'uk';
+const LANG_LABELS: Record<DescLang, string> = { original: 'Original', ru: 'RU', en: 'EN', uk: 'UK' };
+
+// Descriptions come from the summarizer with **bold** markers — render just that.
+function renderBold(text: string): React.ReactNode[] {
+    return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+        part.startsWith('**') && part.endsWith('**')
+            ? <strong key={i}>{part.slice(2, -2)}</strong>
+            : <React.Fragment key={i}>{part}</React.Fragment>,
+    );
+}
+
+const DescriptionCard: React.FC<{ business: IBusiness }> = ({ business }) => {
+    const translations = business.descriptionTranslations ?? {};
+    const langs = (['original', 'ru', 'en', 'uk'] as DescLang[]).filter(
+        (l) => (l === 'original' ? business.description : translations[l]),
+    );
+    const [lang, setLang] = useState<DescLang>(translations.ru ? 'ru' : 'original');
+    const text = lang === 'original' ? business.description : translations[lang];
+
+    return (
+        <Paper elevation={0} sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: CARD_SHADOW, mb: 3 }}>
+            <Box sx={{ height: 3, background: 'linear-gradient(90deg, #10b981, #34d399)' }} />
+            <Box sx={{ p: { xs: 3, md: 4 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
+                    <Typography sx={{
+                        flex: 1, fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
+                        textTransform: 'uppercase', color: '#10b981',
+                    }}>
+                        Description
+                    </Typography>
+                    {langs.length > 1 && langs.map((l) => (
+                        <Button
+                            key={l}
+                            size="small"
+                            onClick={() => setLang(l)}
+                            sx={{
+                                minWidth: 0, px: 1, py: 0.25, fontSize: 11, fontWeight: 700,
+                                color: lang === l ? '#fff' : '#64748b',
+                                bgcolor: lang === l ? '#10b981' : 'transparent',
+                                '&:hover': { bgcolor: lang === l ? '#059669' : '#f1f5f9' },
+                            }}
+                        >
+                            {LANG_LABELS[l]}
+                        </Button>
+                    ))}
+                </Box>
+                {text ? (
+                    <Typography sx={{ fontSize: 14, color: '#1e293b', lineHeight: 1.65, whiteSpace: 'pre-line' }}>
+                        {renderBold(text)}
+                    </Typography>
+                ) : (
+                    <Typography sx={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>
+                        No description
+                    </Typography>
+                )}
+            </Box>
+        </Paper>
+    );
+};
+
 const BusinessDashboardPage: React.FC = () => {
     // userId is optional — when coming from /businesses/:businessId it's absent
     const { userId, businessId } = useParams<{ userId?: string; businessId: string }>();
@@ -216,6 +279,19 @@ const BusinessDashboardPage: React.FC = () => {
                     {business.name}
                 </Typography>
 
+                {business.googleRating != null && (
+                    <Typography
+                        component={business.googleMapsUrl ? 'a' : 'span'}
+                        href={business.googleMapsUrl ?? undefined}
+                        target="_blank"
+                        rel="noopener"
+                        title="Rating from Google Maps"
+                        sx={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, textDecoration: 'none', whiteSpace: 'nowrap' }}
+                    >
+                        ★ {business.googleRating.toFixed(1)} ({business.googleRatingCount ?? 0}) on Google Maps
+                    </Typography>
+                )}
+
                 <Button
                     size="small"
                     startIcon={<TableChartIcon />}
@@ -243,6 +319,8 @@ const BusinessDashboardPage: React.FC = () => {
 
             {/* ── body ── */}
             <Box sx={{ maxWidth: 860, mx: 'auto', width: '100%', px: { xs: 2, md: 3 }, pt: 4, pb: 8 }}>
+
+                <DescriptionCard key={business.id} business={business} />
 
                 {/* stat cards */}
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
@@ -294,6 +372,14 @@ const BusinessDashboardPage: React.FC = () => {
                                 </Box>
                             </Box>
                         </Box>
+                    </Box>
+                </Paper>
+
+                {/* extracted parameters */}
+                <Paper elevation={0} sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: CARD_SHADOW, mt: 3 }}>
+                    <Box sx={{ height: 3, background: 'linear-gradient(90deg, #0ea5e9, #38bdf8)' }} />
+                    <Box sx={{ p: { xs: 3, md: 4 } }}>
+                        <BusinessParametersPanel businessId={business.id} />
                     </Box>
                 </Paper>
 

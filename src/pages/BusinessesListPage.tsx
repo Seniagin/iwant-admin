@@ -1,9 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Box, CircularProgress, Typography } from '@mui/material';
+import { BusinessesMap } from '../components/BusinessesMap';
+import { Alert, Box, CircularProgress, MenuItem, Select, Typography, IconButton } from '@mui/material';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { getBusinesses, type IBusiness } from '../service/business.api.service';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { useSnackbar } from '../contexts/SnackbarContext';
+import {
+    deleteBusiness,
+    getBusinessesPaginated,
+    type IBusiness,
+    type BusinessSortField,
+    type SortDir,
+} from '../service/business.api.service';
 
 // ── design tokens ─────────────────────────────────────────────────────────────
 const BG_PAGE    = '#f1f5f9';
@@ -42,43 +54,78 @@ const StatChip: React.FC<{ label: string; value: number; color: string }> = ({ l
 );
 
 // ── table header cell ────────────────────────────────────────────────────────
-const TH: React.FC<{ children: React.ReactNode; width?: number | string; align?: 'left' | 'right' }> =
-    ({ children, width, align = 'left' }) => (
-        <Box component="th" sx={{
-            width,
-            textAlign: align,
-            px: 2, py: 1.25,
-            fontSize: 10, fontWeight: 800,
-            letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: '#94a3b8',
-            borderBottom: '1px solid #e2e8f0',
-            bgcolor: '#f8fafc',
-            whiteSpace: 'nowrap',
-        }}>
-            {children}
+interface SortState { field: BusinessSortField; dir: SortDir }
+
+const TH: React.FC<{
+    children: React.ReactNode;
+    width?: number | string;
+    align?: 'left' | 'right';
+    sortField?: BusinessSortField;
+    sort?: SortState;
+    onSort?(field: BusinessSortField): void;
+}> = ({ children, width, align = 'left', sortField, sort, onSort }) => {
+    const sortable = !!sortField && !!onSort;
+    const active = sortable && sort?.field === sortField;
+    const Arrow = sort?.dir === 'DESC' ? ArrowDownwardIcon : ArrowUpwardIcon;
+    return (
+        <Box
+            component="th"
+            onClick={sortable ? () => onSort!(sortField!) : undefined}
+            sx={{
+                width,
+                textAlign: align,
+                px: 2, py: 1.25,
+                fontSize: 10, fontWeight: 800,
+                letterSpacing: '0.1em', textTransform: 'uppercase',
+                color: active ? ACCENT : '#94a3b8',
+                borderBottom: '1px solid #e2e8f0',
+                bgcolor: '#f8fafc',
+                whiteSpace: 'nowrap',
+                cursor: sortable ? 'pointer' : 'default',
+                userSelect: 'none',
+                '&:hover': sortable ? { color: active ? ACCENT : '#475569' } : {},
+            }}
+        >
+            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                {children}
+                {active && <Arrow sx={{ fontSize: 12 }} />}
+            </Box>
         </Box>
     );
+};
+
+function formatCreatedAt(iso?: string): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+        ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
 
 // ── table row ────────────────────────────────────────────────────────────────
-const BusinessRow: React.FC<{ business: IBusiness; onClick(): void; even: boolean }> =
-    ({ business, onClick, even }) => {
+const BusinessRow: React.FC<{
+    business: IBusiness;
+    onClick(): void;
+    onDelete(): void;
+    deleting: boolean;
+    even: boolean;
+}> =
+    ({ business, onClick, onDelete, deleting, even }) => {
         const color = avatarColor(business.name ?? '?');
         const meta  = coverageMeta(business.coverageScore);
         const cats  = business.categories ?? [];
         const score = business.coverageScore;
         const visible = cats.slice(0, 3);
         const extra   = cats.length - visible.length;
-        const clickable = !!business.userId;
 
         return (
             <Box
                 component="tr"
-                onClick={clickable ? onClick : undefined}
+                onClick={onClick}
                 sx={{
                     bgcolor: even ? '#fff' : '#fafbfc',
-                    cursor: clickable ? 'pointer' : 'default',
+                    cursor: 'pointer',
                     transition: 'background 0.12s',
-                    '&:hover': clickable ? { bgcolor: '#f0f4ff' } : {},
+                    '&:hover': { bgcolor: '#f0f4ff' },
                     '&:hover .row-arrow': { opacity: 1 },
                     '&:hover td': { borderColor: 'transparent' },
                 }}
@@ -86,15 +133,25 @@ const BusinessRow: React.FC<{ business: IBusiness; onClick(): void; even: boolea
                 {/* ── Name ── */}
                 <Box component="td" sx={{ px: 2, py: 1.5, borderBottom: '1px solid #f1f5f9' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{
-                            width: 32, height: 32, borderRadius: 1.25, flexShrink: 0,
-                            bgcolor: color,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                            <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
-                                {(business.name ?? '?')[0].toUpperCase()}
-                            </Typography>
-                        </Box>
+                        {business.logoUrl ? (
+                            <Box
+                                component="img"
+                                src={business.logoUrl}
+                                alt=""
+                                loading="lazy"
+                                sx={{ width: 32, height: 32, borderRadius: 1.25, flexShrink: 0, objectFit: 'cover', bgcolor: '#f1f5f9' }}
+                            />
+                        ) : (
+                            <Box sx={{
+                                width: 32, height: 32, borderRadius: 1.25, flexShrink: 0,
+                                bgcolor: color,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+                                    {(business.name ?? '?')[0].toUpperCase()}
+                                </Typography>
+                            </Box>
+                        )}
                         <Box sx={{ minWidth: 0 }}>
                             <Typography sx={{
                                 fontSize: 13, fontWeight: 700, color: '#0f172a',
@@ -173,41 +230,110 @@ const BusinessRow: React.FC<{ business: IBusiness; onClick(): void; even: boolea
                     )}
                 </Box>
 
+                {/* ── Created ── */}
+                <Box component="td" sx={{ px: 2, py: 1.5, borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                    <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+                        {formatCreatedAt(business.createdAt)}
+                    </Typography>
+                </Box>
+
+                {/* ── Delete ── */}
+                <Box component="td" sx={{ px: 0.5, py: 1.5, borderBottom: '1px solid #f1f5f9', width: 40 }}>
+                    <IconButton
+                        size="small"
+                        title="Delete business"
+                        disabled={deleting}
+                        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                        sx={{ color: '#cbd5e1', '&:hover': { color: '#ef4444', bgcolor: '#fef2f2' } }}
+                    >
+                        {deleting
+                            ? <CircularProgress size={16} sx={{ color: '#ef4444' }} />
+                            : <DeleteOutlineIcon sx={{ fontSize: 18 }} />}
+                    </IconButton>
+                </Box>
+
                 {/* ── Arrow ── */}
                 <Box component="td" sx={{ px: 1.5, py: 1.5, borderBottom: '1px solid #f1f5f9', width: 32 }}>
-                    {clickable && (
-                        <ChevronRightIcon
-                            className="row-arrow"
-                            sx={{ fontSize: 18, color: '#94a3b8', opacity: 0, transition: 'opacity 0.15s', display: 'block' }}
-                        />
-                    )}
+                    <ChevronRightIcon
+                        className="row-arrow"
+                        sx={{ fontSize: 18, color: '#94a3b8', opacity: 0, transition: 'opacity 0.15s', display: 'block' }}
+                    />
                 </Box>
             </Box>
         );
     };
 
+const PAGE_SIZES = [25, 50, 100];
+
 // ── page ──────────────────────────────────────────────────────────────────────
 export const BusinessesListPage: React.FC = () => {
     const [businesses, setBusinesses] = useState<IBusiness[]>([]);
+    const [total, setTotal]           = useState(0);
     const [loading, setLoading]       = useState(true);
     const [error, setError]           = useState<string | null>(null);
+    const [page, setPage]             = useState(1);
+    const [pageSize, setPageSize]     = useState(25);
+    const [sort, setSort]             = useState<SortState>({ field: 'createdAt', dir: 'DESC' });
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [reloadKey, setReloadKey]   = useState(0);
     const navigate = useNavigate();
+    const { showSuccess, showError } = useSnackbar();
 
     useEffect(() => {
-        getBusinesses()
-            .then(setBusinesses)
+        setLoading(true);
+        getBusinessesPaginated(page, pageSize, sort.field, sort.dir)
+            .then((res) => {
+                // Deleting the last row of the last page leaves it empty — step back.
+                if (res.data.length === 0 && page > 1) { setPage((p) => p - 1); return; }
+                setBusinesses(res.data);
+                setTotal(res.total);
+            })
             .catch(() => setError('Failed to load businesses'))
             .finally(() => setLoading(false));
-    }, []);
+    }, [page, pageSize, sort, reloadKey]);
+
+    // Shared by table rows and map markers.
+    const openBusiness = useCallback(
+        (b: { id: string; userId?: number | null }) =>
+            navigate(b.userId ? `/business-users/${b.userId}/businesses/${b.id}` : `/businesses/${b.id}`),
+        [navigate],
+    );
+
+    const handleDelete = async (business: IBusiness) => {
+        if (!window.confirm(`Delete "${business.name}"? This also removes its offers and cannot be undone.`)) return;
+        setDeletingId(business.id);
+        try {
+            await deleteBusiness(business.id);
+            showSuccess(`"${business.name}" deleted`);
+            setReloadKey((k) => k + 1);
+        } catch {
+            showError(`Failed to delete "${business.name}"`);
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    // Same column clicked again flips direction; a new column starts on its
+    // natural direction (newest / highest first for dates and coverage, A→Z for name).
+    const handleSort = (field: BusinessSortField) => {
+        setSort((prev) =>
+            prev.field === field
+                ? { field, dir: prev.dir === 'ASC' ? 'DESC' : 'ASC' }
+                : { field, dir: field === 'name' ? 'ASC' : 'DESC' },
+        );
+        setPage(1);
+    };
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
     const stats = useMemo(() => ({
-        total:        businesses.length,
+        total,
         analyzed:     businesses.filter((b) => b.coverageScore != null).length,
         highCoverage: businesses.filter((b) => (b.coverageScore ?? 0) >= 70).length,
         noCats:       businesses.filter((b) => !b.categories?.length).length,
-    }), [businesses]);
+    }), [businesses, total]);
 
-    if (loading) return (
+    if (loading && businesses.length === 0) return (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
             <CircularProgress sx={{ color: ACCENT }} />
         </Box>
@@ -243,6 +369,18 @@ export const BusinessesListPage: React.FC = () => {
                 </Box>
             </Box>
 
+            {/* ── Map ── */}
+            <Box sx={{
+                bgcolor: '#fff',
+                borderRadius: 2.5,
+                overflow: 'hidden',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.05)',
+                border: '1px solid #e2e8f0',
+                mb: 3,
+            }}>
+                <BusinessesMap onOpen={openBusiness} reloadKey={reloadKey} />
+            </Box>
+
             {/* ── Table ── */}
             <Box sx={{
                 bgcolor: '#fff',
@@ -263,9 +401,11 @@ export const BusinessesListPage: React.FC = () => {
                     <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
                         <Box component="thead">
                             <Box component="tr">
-                                <TH>Name</TH>
+                                <TH sortField="name" sort={sort} onSort={handleSort}>Name</TH>
                                 <TH>Categories</TH>
-                                <TH width={200}>Coverage</TH>
+                                <TH width={200} sortField="coverageScore" sort={sort} onSort={handleSort}>Coverage</TH>
+                                <TH width={140} sortField="createdAt" sort={sort} onSort={handleSort}>Created</TH>
+                                <TH width={40}> </TH>
                                 <TH width={32}> </TH>
                             </Box>
                         </Box>
@@ -275,9 +415,55 @@ export const BusinessesListPage: React.FC = () => {
                                     key={b.id}
                                     business={b}
                                     even={i % 2 === 0}
-                                    onClick={() => navigate(b.userId ? `/business-users/${b.userId}/businesses/${b.id}` : `/businesses/${b.id}`)}
+                                    deleting={deletingId === b.id}
+                                    onDelete={() => handleDelete(b)}
+                                    onClick={() => openBusiness(b)}
                                 />
                             ))}
+                        </Box>
+                    </Box>
+                )}
+
+                {/* ── Pagination footer ── */}
+                {total > 0 && (
+                    <Box sx={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        px: 2, py: 1.25, borderTop: '1px solid #f1f5f9', bgcolor: '#f8fafc',
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>Rows per page:</Typography>
+                            <Select
+                                size="small"
+                                value={pageSize}
+                                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                                sx={{ fontSize: 12, height: 28, '.MuiOutlinedInput-notchedOutline': { borderColor: '#e2e8f0' } }}
+                            >
+                                {PAGE_SIZES.map((s) => (
+                                    <MenuItem key={s} value={s} sx={{ fontSize: 12 }}>{s}</MenuItem>
+                                ))}
+                            </Select>
+                        </Box>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography sx={{ fontSize: 12, color: '#64748b', mr: 1 }}>
+                                {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+                            </Typography>
+                            <IconButton
+                                size="small"
+                                disabled={page <= 1 || loading}
+                                onClick={() => setPage((p) => p - 1)}
+                                sx={{ color: '#475569', '&:disabled': { color: '#cbd5e1' } }}
+                            >
+                                <ChevronLeftIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
+                            <IconButton
+                                size="small"
+                                disabled={page >= totalPages || loading}
+                                onClick={() => setPage((p) => p + 1)}
+                                sx={{ color: '#475569', '&:disabled': { color: '#cbd5e1' } }}
+                            >
+                                <ChevronRightIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
                         </Box>
                     </Box>
                 )}

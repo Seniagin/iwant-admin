@@ -20,12 +20,7 @@ import LocationPicker, { LocationMapPreview } from '../components/LocationPicker
 function buildCreatePayload(params: {
     email: string;
     password: string;
-    telegramId: string;
-    telegramUsername: string;
-    telegramFirstName: string;
-    telegramLastName: string;
-    telegramLanguageCode: string;
-    telegramPhotoUrl: string;
+    languageCode: string;
     isActive: boolean;
     pickedLocation: Location | null;
 }): CreateAdminUserDto {
@@ -35,21 +30,8 @@ function buildCreatePayload(params: {
     const e = params.email.trim();
     if (e) body.email = e;
     if (params.password) body.password = params.password;
-    const tid = params.telegramId.trim();
-    if (tid) {
-        const n = Number.parseInt(tid, 10);
-        if (Number.isFinite(n)) body.telegramId = n;
-    }
-    const tu = params.telegramUsername.trim();
-    if (tu) body.telegramUsername = tu;
-    const tfn = params.telegramFirstName.trim();
-    if (tfn) body.telegramFirstName = tfn;
-    const tln = params.telegramLastName.trim();
-    if (tln) body.telegramLastName = tln;
-    const tlc = params.telegramLanguageCode.trim();
-    if (tlc) body.telegramLanguageCode = tlc;
-    const tpu = params.telegramPhotoUrl.trim();
-    if (tpu) body.telegramPhotoUrl = tpu;
+    const lc = params.languageCode.trim();
+    if (lc) body.languageCode = lc;
     if (params.pickedLocation) {
         body.latitude = params.pickedLocation.latitude;
         body.longitude = params.pickedLocation.longitude;
@@ -65,12 +47,7 @@ export const UserCreatePage: React.FC = () => {
     const [pickedLocation, setPickedLocation] = useState<Location | null>(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [telegramId, setTelegramId] = useState('');
-    const [telegramUsername, setTelegramUsername] = useState('');
-    const [telegramFirstName, setTelegramFirstName] = useState('');
-    const [telegramLastName, setTelegramLastName] = useState('');
-    const [telegramLanguageCode, setTelegramLanguageCode] = useState('');
-    const [telegramPhotoUrl, setTelegramPhotoUrl] = useState('');
+    const [languageCode, setLanguageCode] = useState('');
     const [isActive, setIsActive] = useState(true);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -80,12 +57,7 @@ export const UserCreatePage: React.FC = () => {
             const body = buildCreatePayload({
                 email,
                 password,
-                telegramId,
-                telegramUsername,
-                telegramFirstName,
-                telegramLastName,
-                telegramLanguageCode,
-                telegramPhotoUrl,
+                languageCode,
                 isActive,
                 pickedLocation,
             });
@@ -146,50 +118,11 @@ export const UserCreatePage: React.FC = () => {
                 />
                 <TextField
                     fullWidth
-                    label="Telegram ID"
-                    value={telegramId}
-                    onChange={(e) => setTelegramId(e.target.value)}
+                    label="Language code"
+                    value={languageCode}
+                    onChange={(e) => setLanguageCode(e.target.value)}
                     size="small"
-                    sx={{ mb: 2 }}
-                />
-                <TextField
-                    fullWidth
-                    label="Telegram username"
-                    value={telegramUsername}
-                    onChange={(e) => setTelegramUsername(e.target.value)}
-                    size="small"
-                    sx={{ mb: 2 }}
-                />
-                <TextField
-                    fullWidth
-                    label="Telegram first name"
-                    value={telegramFirstName}
-                    onChange={(e) => setTelegramFirstName(e.target.value)}
-                    size="small"
-                    sx={{ mb: 2 }}
-                />
-                <TextField
-                    fullWidth
-                    label="Telegram last name"
-                    value={telegramLastName}
-                    onChange={(e) => setTelegramLastName(e.target.value)}
-                    size="small"
-                    sx={{ mb: 2 }}
-                />
-                <TextField
-                    fullWidth
-                    label="Telegram language code"
-                    value={telegramLanguageCode}
-                    onChange={(e) => setTelegramLanguageCode(e.target.value)}
-                    size="small"
-                    sx={{ mb: 2 }}
-                />
-                <TextField
-                    fullWidth
-                    label="Telegram photo URL"
-                    value={telegramPhotoUrl}
-                    onChange={(e) => setTelegramPhotoUrl(e.target.value)}
-                    size="small"
+                    helperText="e.g. en, ru, uk"
                     sx={{ mb: 2 }}
                 />
 

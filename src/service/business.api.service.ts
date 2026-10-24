@@ -19,12 +19,19 @@ export interface IBusiness {
     id: string;
     name: string;
     description?: string;
+    descriptionTranslations?: Partial<Record<'en' | 'ru' | 'uk', string>> | null;
     contacts?: IBusinessContacts;
     categories?: ICategory[];
     location?: { longitude: number; latitude: number };
     userId?: number | null;
     coverageScore?: number | null;
     coverageAnalyzedAt?: string | null;
+    createdAt?: string;
+    logoUrl?: string | null;
+    /** Google Maps rating (imported businesses); shown attributed to Google Maps. */
+    googleRating?: number | null;
+    googleRatingCount?: number | null;
+    googleMapsUrl?: string | null;
 }
 
 export interface ICategory {
@@ -37,12 +44,7 @@ export interface ICategory {
 export interface IBusinessUser {
     id: number;
     email: string | null;
-    telegramId: number | null;
-    telegramUsername: string | null;
-    telegramFirstName: string | null;
-    telegramLastName: string | null;
-    telegramLanguageCode: string | null;
-    telegramPhotoUrl: string | null;
+    languageCode: string | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -52,12 +54,7 @@ export interface IBusinessUser {
 export interface CreateAdminBusinessUserDto {
     email?: string | null;
     password?: string;
-    telegramId?: number | null;
-    telegramUsername?: string | null;
-    telegramFirstName?: string | null;
-    telegramLastName?: string | null;
-    telegramLanguageCode?: string | null;
-    telegramPhotoUrl?: string | null;
+    languageCode?: string | null;
     isActive?: boolean;
 }
 
@@ -65,15 +62,9 @@ export interface CreateAdminBusinessUserDto {
 export interface UpdateAdminBusinessUserDto {
     email?: string | null;
     password?: string;
-    telegramId?: number | null;
-    telegramUsername?: string | null;
-    telegramFirstName?: string | null;
-    telegramLastName?: string | null;
-    telegramLanguageCode?: string | null;
-    telegramPhotoUrl?: string | null;
+    languageCode?: string | null;
     isActive?: boolean;
     clearPassword?: boolean;
-    unsetTelegramId?: boolean;
 }
 
 /** POST /admin/demands/:demandId/offers — body matches backend `AdminCreateOfferDto`. */
@@ -82,6 +73,7 @@ export interface AdminCreateOfferDto {
     price?: number;
     time?: OfferTimingEnum;
     comment?: string;
+    scheduledSlots?: Array<{ date?: string; time?: string }> | null;
 }
 
 const API_URL = process.env.REACT_APP_API_URL;
@@ -141,6 +133,46 @@ export const getBusinesses = async (): Promise<IBusiness[]> => {
     return response.json();
 };
 
+export interface IBusinessesPage {
+    data: IBusiness[];
+    total: number;
+    page: number;
+    limit: number;
+}
+
+export type BusinessSortField = 'name' | 'createdAt' | 'coverageScore';
+export type SortDir = 'ASC' | 'DESC';
+
+export const getBusinessesPaginated = async (
+    page: number,
+    limit: number,
+    sortBy: BusinessSortField = 'name',
+    sortDir: SortDir = 'ASC',
+): Promise<IBusinessesPage> => {
+    const qs = new URLSearchParams({ page: String(page), limit: String(limit), sortBy, sortDir });
+    const response = await fetch(`${API_URL}/admin/business/list?${qs}`);
+    if (!response.ok) throw new Error('Failed to fetch businesses');
+    return response.json();
+};
+
+/** GET /admin/business/map — one lightweight row per business with a location. */
+export interface IBusinessMapMarker {
+    id: string;
+    name: string;
+    userId: number | null;
+    location: { latitude: number; longitude: number };
+    logoUrl: string | null;
+    categories: string[];
+    description: string | null;
+    createdAt: string;
+}
+
+export const getBusinessesForMap = async (): Promise<IBusinessMapMarker[]> => {
+    const response = await fetch(`${API_URL}/admin/business/map`);
+    if (!response.ok) throw new Error('Failed to fetch businesses for map');
+    return response.json();
+};
+
 export const getBusinessById = async (id: string): Promise<IBusiness> => {
     const response = await fetch(`${API_URL}/admin/business/${id}`);
     return response.json();
@@ -182,8 +214,34 @@ export const deleteBusiness = async (businessId: string): Promise<void> => {
     }
 };
 
+/** One vectorization parameter with whatever was extracted for this business. */
+export interface IBusinessParameter {
+    key: string;
+    label: string;
+    valueType: 'enum' | 'text_list' | 'text' | 'number' | 'boolean';
+    role: 'vector' | 'filter' | 'ranking' | 'display';
+    enabled: boolean;
+    /** null when nothing was extracted for this parameter. */
+    value: string[] | string | null;
+}
+
+export const getBusinessParameters = async (businessId: string): Promise<IBusinessParameter[]> => {
+    const response = await fetch(`${API_URL}/admin/business/${businessId}/parameters`);
+    if (!response.ok) throw new Error('Failed to fetch parameters');
+    return response.json();
+};
+
+export const reconcileBusinessCategories = async (businessId: string): Promise<{ categories: string[] }> => {
+    const response = await fetch(`${API_URL}/admin/business/${businessId}/reconcile-categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) throw new Error('Failed to reconcile categories');
+    return response.json();
+};
+
 export const addCategoryToBusiness = async (businessId: string, categoryId: string): Promise<void> => {
-    const response = await fetch(`${API_URL}/business/${businessId}/categories/${categoryId}`, {
+    const response = await fetch(`${API_URL}/admin/business/${businessId}/category/${categoryId}/add`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -193,8 +251,8 @@ export const addCategoryToBusiness = async (businessId: string, categoryId: stri
 };
 
 export const removeCategoryFromBusiness = async (businessId: string, categoryId: string): Promise<void> => {
-    const response = await fetch(`${API_URL}/business/${businessId}/categories/${categoryId}`, {
-        method: 'DELETE',
+    const response = await fetch(`${API_URL}/admin/business/${businessId}/category/${categoryId}/remove`, {
+        method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         }
@@ -244,7 +302,6 @@ export interface BusinessOfferDto {
     createdAt: string;
     demand: {
         id: number;
-        summarizedTranslation: string | null;
         translation: string | null;
         transcription: string | null;
         createdAt: string;
@@ -279,7 +336,7 @@ export const createBusinessUser = async (body: CreateAdminBusinessUserDto): Prom
         body: JSON.stringify(body),
     });
     if (!response.ok) {
-        if (response.status === 409) throw new Error('Email or Telegram ID already in use');
+        if (response.status === 409) throw new Error('Email already in use');
         throw new Error('Failed to create business user');
     }
     return response.json();
@@ -295,7 +352,7 @@ export const updateBusinessUser = async (userId: number, body: UpdateAdminBusine
     });
     if (!response.ok) {
         if (response.status === 404) throw new Error('Business user not found');
-        if (response.status === 409) throw new Error('Email or Telegram ID already in use');
+        if (response.status === 409) throw new Error('Email already in use');
         throw new Error('Failed to update business user');
     }
     return response.json();

@@ -7,6 +7,8 @@ export function demandStatusChipColor(
     switch (status) {
         case DemandStatusEnum.ACTIVE:
             return 'success';
+        case DemandStatusEnum.FULFILLED:
+            return 'info';
         case DemandStatusEnum.PENDING_REVIEW:
             return 'warning';
         case DemandStatusEnum.DECLINED:
@@ -25,12 +27,11 @@ export function formatDemandStatus(status: DemandStatusEnum): string {
         .replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
-/** Single line for tables: transcription, then translation, then summary. */
+/** Single line for tables: the client's words, else the English (matching) translation. */
 export function demandTextPreview(demand: DemandResponseDto, maxLen = 120): string {
     const raw =
         demand.transcription?.trim() ||
         demand.translation?.trim() ||
-        demand.summarizedTranslation?.trim() ||
         '—';
     if (raw.length <= maxLen) return raw;
     return `${raw.slice(0, maxLen)}…`;

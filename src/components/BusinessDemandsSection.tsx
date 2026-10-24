@@ -13,21 +13,23 @@ import { OfferTimingEnum } from '../types/offerTiming';
 const ACCENT = '#6366f1';
 
 const STATUS_META: Record<string, { color: string; label: string }> = {
-    ACTIVE:         { color: '#10b981', label: 'Active' },
-    PENDING_REVIEW: { color: '#f59e0b', label: 'Pending' },
-    REJECTED:       { color: '#ef4444', label: 'Rejected' },
-    COMPLETED:      { color: '#94a3b8', label: 'Completed' },
+    PENDING_REVIEW: { color: '#f59e0b', label: 'In review' },
+    DECLINED:  { color: '#ef4444', label: 'Rejected' },
+    ACTIVE:    { color: '#10b981', label: 'Active' },
+    FULFILLED: { color: '#6366f1', label: 'Offer accepted' },
+    CANCELED:  { color: '#94a3b8', label: 'Cancelled' },
+    INACTIVE:  { color: '#94a3b8', label: 'Expired' },
 };
 
 const TIMING_LABELS: Record<OfferTimingEnum, string> = {
     [OfferTimingEnum.TODAY]:          'Today',
     [OfferTimingEnum.THIS_WEEK]:      'This week',
-    [OfferTimingEnum.AFTER_THIS_WEEK]:'Later',
+    [OfferTimingEnum.DISCUSSIBLE]:'Discussible',
 };
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function demandText(d: DemandResponseDto) {
-    return d.summarizedTranslation || d.translation || d.transcription || `Demand #${d.id}`;
+    return d.transcription || d.translation || `Demand #${d.id}`;
 }
 
 function shortDate(iso: string) {
