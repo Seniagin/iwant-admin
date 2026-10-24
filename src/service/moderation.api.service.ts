@@ -17,7 +17,7 @@ export interface ReviewBusiness {
 }
 
 export interface ReviewRecipients {
-    /** The client chose them ("Get offers"); otherwise the matcher's pick. */
+    /** The client chose them ("Send"); otherwise the matcher's pick. */
     chosenByClient: boolean;
     businesses: ReviewBusiness[];
 }
